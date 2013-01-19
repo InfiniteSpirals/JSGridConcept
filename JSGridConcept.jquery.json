@@ -1,0 +1,28 @@
+{
+  "name": "JSGridConcept",
+  "title": "Jsgridconcept",
+  "description": "Awesome Grids in JS/CSS",
+  "version": "0.0.1",
+  "homepage": "https://github.com/InfiniteSpirals/JSGridConcept",
+  "author": {
+    "name": "InfiniteSpirals",
+    "email": "isol@sampleoakrecords.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/InfiniteSpirals/JSGridConcept.git"
+  },
+  "bugs": {
+    "url": "https://github.com/InfiniteSpirals/JSGridConcept/issues"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/InfiniteSpirals/JSGridConcept/blob/master/LICENSE-MIT"
+    }
+  ],
+  "dependencies": {
+    "jquery": "1.8.0"
+  },
+  "keywords": []
+}

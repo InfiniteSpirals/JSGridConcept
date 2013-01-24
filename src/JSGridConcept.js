@@ -10,14 +10,13 @@
 	var animations = {},celltypes = {};
 	//Grid Constructor.	
 	var Grid = function(elem$,options){
-		//calculate offset.
-		options.cellOffset = options.cellDiam + options.cellMargin;		
 		//define collection of elements and array of cells.
 		var cells = []; 
-		this.subgrids = [];
 		var z=0;
 		//Grid Queue Object
 		var gridQueue = $({});
+		//calculate offset.
+		options.cellOffset = options.cellDiam + options.cellMargin;	
 		//populate array with cells
 		for(var x=0;x < options.rows;x++){
 			for(var y=0;y < options.cols;y++){
@@ -29,7 +28,6 @@
 				cells.push(new Cell(cellOptions,$(elem$[z])));
 				z++;
 			}
-			//cells.push(row);
 		}
 
 		//Grid specific methods
@@ -45,10 +43,19 @@
 				}
 			},		
 			ripple : function(){
+				var chainsFired = [];
 				$.each(cells,function(i, cell){
 					gridQueue.queue('ripple',function(next){
 						setTimeout(function(){
-							if(cell instanceof Cell) cell.nextState();
+							if(cell instanceof Cell){
+								cell.nextState();
+							}else{
+								if($.inArray(cell,chainsFired)==-1 && $.inArray('ripple',subgrids[cell].getOption('chainMethods'))!=-1){
+									subgrids[cell].invoke('ripple');
+									chainsFired.push(cell);
+									console.log('do we get in here?');
+								}								
+							}
 							next();
 						},25);
 					});
@@ -64,6 +71,7 @@
 				}
 			}
 		};
+		var subgrids = [];
 		this.injectGrid = function(sgoptions,xstart,ystart){
 			//take defaults for this grid, extend with subgrid options.
 			var sgoptions = $.extend({},options,sgoptions);
@@ -72,7 +80,6 @@
 			var subGrid$ = [];
 			for(var y=0;y<sgoptions.rows;y++){
 				var firstcell = ((options.cols * ystart) + (options.cols * y)) + xstart;
-				var test = options.cols *y;
 				for(var x=0;x<sgoptions.cols;x++){
 					var pos = firstcell+x;
 					//assign jquery wrapped cell HTMLElement to subgrid elements array.
@@ -81,11 +88,11 @@
 					//unbind any events bound to cell element in master grid.
 					cells[pos].unbind();
 					//... and add a reference to the subgrid into this grids cells array.
-					cells[pos] = this.subgrids.length;
+					cells[pos] = subgrids.length;
 				}
 			}
 			//create the subgrid and push it into the subgrids array of this grid.
-			this.subgrids.push(new Grid(subGrid$,sgoptions));
+			subgrids.push(new Grid(subGrid$,sgoptions));
 		};
 
 		this.invoke = function(method){
@@ -184,17 +191,19 @@
 				rows:2,
 				cols:2,
 				initMethods : ['setBackground','setRollover'],
-				background: 'url(http://www.pictureworldbd.com/Flower/image/lotus/pink_lotus_flower_wallpaper.jpg)'
+				background: 'url(http://www.pictureworldbd.com/Flower/image/lotus/pink_lotus_flower_wallpaper.jpg)',
+				chainMethods: []
 			},4,0);
-			setInterval(function(){masterGrid.subgrids[0].invoke('ripple')},2000);
+			//setInterval(function(){masterGrid.subgrids[0].invoke('ripple')},2000);
 			
 			masterGrid.injectGrid({
 				rows:4,
 				cols:4,
 				initMethods : ['setBackground','setRollover'],
-				background: 'url(http://upload.wikimedia.org/wikipedia/commons/4/4f/Fractal_Broccoli.jpg)'
+				background: 'url(http://upload.wikimedia.org/wikipedia/commons/4/4f/Fractal_Broccoli.jpg)',
+				chainMethods: ['ripple']
 			},0,2);
-			setInterval(function(){masterGrid.subgrids[1].invoke('ripple')},2900);
+			//setInterval(function(){masterGrid.subgrids[1].invoke('ripple')},2900);
 		});
 	};
 })(jQuery);

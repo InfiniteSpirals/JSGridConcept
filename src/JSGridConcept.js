@@ -13,41 +13,39 @@
 		//calculate offset.
 		options.cellOffset = options.cellDiam + options.cellMargin;		
 		//define collection of elements and array of cells.
-		this.cells = []; 
+		var cells = []; 
 		this.subgrids = [];
 		var z=0;
 		//Grid Queue Object
 		var gridQueue = $({});
 		//populate array with cells
 		for(var x=0;x < options.rows;x++){
-			//var row = [];
 			for(var y=0;y < options.cols;y++){
 				var cellOptions = {
 					backgroundX : y > 0 ? options.cellOffset*y : y, 
 					backgroundY : x > 0 ? options.cellOffset*x : x,
 					background : options.background
 				};
-				this.cells.push(new Cell(cellOptions,$(elem$[z])));
-				//row[y] = new Cell(cellOptions,$(elem$[z]));
+				cells.push(new Cell(cellOptions,$(elem$[z])));
 				z++;
 			}
-			//this.cells.push(row);
+			//cells.push(row);
 		}
 
 		//Grid specific methods
 		var methods = {
 			setBackground : function(){
-				for(var x=0;x<this.cells.length;x++){
-					this.cells[x].setBackground();
+				for(var x=0;x<cells.length;x++){
+					cells[x].setBackground();
 				}
 			},
 			setRollover : function(){
-				for(var x=0;x<this.cells.length;x++){
-					this.cells[x].rollover();
+				for(var x=0;x<cells.length;x++){
+					cells[x].rollover();
 				}
 			},		
 			ripple : function(){
-				$.each(this.cells,function(i, cell){
+				$.each(cells,function(i, cell){
 					gridQueue.queue('ripple',function(next){
 						setTimeout(function(){
 							if(cell instanceof Cell) cell.nextState();
@@ -61,31 +59,54 @@
 		
 		var initgrid = function(){
 			for(var x=0;x<options.initMethods.length;x++){
-				if (methods[options.initMethods[x]]) {
-					methods[options.initMethods[x]].apply(this);
+				if(methods[options.initMethods[x]]){
+					methods[options.initMethods[x]].call(arguments);
 				}
 			}
 		};
-		this.injectGrid = function(subGrid$,sgoptions){
-			var sgoptions = $.extend(options,sgoptions);
+		this.injectGrid = function(sgoptions,xstart,ystart){
+			//take defaults for this grid, extend with subgrid options.
+			var sgoptions = $.extend({},options,sgoptions);
 			//work out X/Y positions.
-			var affectedPos = [4,5,12,13];
-			//change cells reference to hold a reference to this subgrid, rather than specific elements.
-			for(var x=0;x<affectedPos.length;x++){
-				this.cells[affectedPos[x]].unbind();
-				this.cells[affectedPos[x]] = this.subgrids.length+1;				
+			//n.b will need to add some testing to check its within dimensions here
+			var subGrid$ = [];
+			for(var y=0;y<sgoptions.rows;y++){
+				var firstcell = ((options.cols * ystart) + (options.cols * y)) + xstart;
+				var test = options.cols *y;
+				for(var x=0;x<sgoptions.cols;x++){
+					var pos = firstcell+x;
+					//assign jquery wrapped cell HTMLElement to subgrid elements array.
+					subGrid$.push(elem$[pos]);
+					//whilst we're in this loop, we have the affected position reference so we can
+					//unbind any events bound to cell element in master grid.
+					cells[pos].unbind();
+					//... and add a reference to the subgrid into this grids cells array.
+					cells[pos] = this.subgrids.length;
+				}
 			}
-			//unbind events on existing cells.
+			//create the subgrid and push it into the subgrids array of this grid.
 			this.subgrids.push(new Grid(subGrid$,sgoptions));
 		};
 
 		this.invoke = function(method){
 			if (methods[method]) {
-				return methods[method].apply( this, Array.prototype.slice.call( arguments, 1 ));
+				return methods[method].apply(this,Array.prototype.slice.call(arguments,1));
 			}
 		}
+
+		this.injectMethod = function(method,newmethod){
+			methods[method] = newmethod;			
+		}
+
+		this.setOption = function(option,value){
+			options[option] = value;
+		}
+
+		this.getOption = function(option){
+			return options[option] || '';			
+		}
 		//carry out some default init behaviour..
-		initgrid.apply(this);
+		initgrid();
 	};	
 
 	//Cell Constructor
@@ -156,10 +177,24 @@
 			//Create Grid object to represent MasterGrid.
 			var masterGridCells = $(this).find('.cell');
 			var masterGrid = new Grid(masterGridCells,options);
-			var subGrid$ = [masterGridCells[4],masterGridCells[5],masterGridCells[12],masterGridCells[13]];
-			//masterGrid.injectGrid(new Grid(subGrid$,$.extend(options,{rows:2,cols:2,initMethods : ['setBackground','setRollover'],background: 'url(http://www.pictureworldbd.com/Flower/image/lotus/pink_lotus_flower_wallpaper.jpg)'})));
-			masterGrid.injectGrid(subGrid$,{rows:2,cols:2,initMethods : ['setBackground','setRollover'],background: 'url(http://www.pictureworldbd.com/Flower/image/lotus/pink_lotus_flower_wallpaper.jpg)'});
-			setTimeout(function(){masterGrid.invoke('ripple')},1000);
+			setInterval(function(){masterGrid.invoke('ripple')},4000);
+
+			//test out some subgrid allocations
+			masterGrid.injectGrid({
+				rows:2,
+				cols:2,
+				initMethods : ['setBackground','setRollover'],
+				background: 'url(http://www.pictureworldbd.com/Flower/image/lotus/pink_lotus_flower_wallpaper.jpg)'
+			},4,0);
+			setInterval(function(){masterGrid.subgrids[0].invoke('ripple')},2000);
+			
+			masterGrid.injectGrid({
+				rows:4,
+				cols:4,
+				initMethods : ['setBackground','setRollover'],
+				background: 'url(http://upload.wikimedia.org/wikipedia/commons/4/4f/Fractal_Broccoli.jpg)'
+			},0,2);
+			setInterval(function(){masterGrid.subgrids[1].invoke('ripple')},2900);
 		});
 	};
 })(jQuery);

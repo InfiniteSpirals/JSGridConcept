@@ -53,7 +53,6 @@
 								if($.inArray(cell,chainsFired)==-1 && $.inArray('ripple',subgrids[cell].getOption('chainMethods'))!=-1){
 									subgrids[cell].invoke('ripple');
 									chainsFired.push(cell);
-									console.log('do we get in here?');
 								}								
 							}
 							next();
@@ -61,6 +60,11 @@
 					});
 				});
 				gridQueue.dequeue('ripple');
+			},
+			setNextBackground : function(){
+				$.each(cells,function(i, cell){
+					cell.setOption('background',options.background).setNextBackground();
+				});
 			}
 		};	
 		
@@ -95,23 +99,33 @@
 			subgrids.push(new Grid(subGrid$,sgoptions));
 		};
 
+		this.getSubgrid = function(id){
+			//robustify??
+			return subgrids[id];
+		};
+
 		this.invoke = function(method){
 			if (methods[method]) {
-				return methods[method].apply(this,Array.prototype.slice.call(arguments,1));
+				methods[method].call(Array.prototype.slice.call(arguments,1));
 			}
-		}
+			//make chainable(?)
+			return this;
+		};
 
 		this.injectMethod = function(method,newmethod){
 			methods[method] = newmethod;			
-		}
+		};
 
 		this.setOption = function(option,value){
 			options[option] = value;
-		}
+			console.log(options[option]);
+			//make chainable
+			return this;
+		};
 
 		this.getOption = function(option){
 			return options[option] || '';			
-		}
+		};
 		//carry out some default init behaviour..
 		initgrid();
 	};	
@@ -119,6 +133,7 @@
 	//Cell Constructor
 	var Cell = function(options,cell$){
 		var nextClasses = ['show-left','show-right','show-front','show-back'];
+		var nextFaces = ['left','right','front','back'];
 		var binded = [];
 		var x=0;
 		this.setBackground = function(){
@@ -133,6 +148,26 @@
 				backgroundPositionY: -options.backgroundY
 			});
 		};
+
+		this.setNextBackground = function(){
+			for(var i=0;i<nextFaces.length;i++){
+				if(i!=(x-1)){
+					cell$.find('.' + nextFaces[i]).css({
+						backgroundImage: options.background
+					});
+				}
+			}			
+		};
+
+		this.setOption = function(option,value){
+			options[option] = value;
+			//make chainable
+			return this;
+		}
+
+		this.getOption = function(option,value){
+			return options[option] || '';
+		}
 
 		this.nextState = function(){
 			cell$.find('.cube').removeClass().addClass(nextClasses[x]).addClass('cube');
@@ -188,41 +223,38 @@
 
 			//test out some subgrid allocations
 			masterGrid.injectGrid({
-				rows:2,
-				cols:2,
+				rows:6,
+				cols:4,
 				initMethods : ['setBackground','setRollover'],
 				background: 'url(http://www.pictureworldbd.com/Flower/image/lotus/pink_lotus_flower_wallpaper.jpg)',
 				chainMethods: []
 			},4,0);
-			//setInterval(function(){masterGrid.subgrids[0].invoke('ripple')},2000);
+			//TEST!!!! 
+			masterGrid.getSubgrid(0).invoke('ripple');
+			setTimeout(function(){
+				console.log('timeout function fired');
+				masterGrid.getSubgrid(0).
+					setOption('background','url(http://upload.wikimedia.org/wikipedia/commons/4/4f/Fractal_Broccoli.jpg)').
+					invoke('setNextBackground').
+					invoke('ripple');
+			},3000);
 			
-			masterGrid.injectGrid({
-				rows:4,
-				cols:4,
-				initMethods : ['setBackground','setRollover'],
-				background: 'url(http://upload.wikimedia.org/wikipedia/commons/4/4f/Fractal_Broccoli.jpg)',
-				chainMethods: ['ripple']
-			},0,2);
+			// masterGrid.injectGrid({
+			// 	rows:4,
+			// 	cols:4,
+			// 	initMethods : ['setBackground','setRollover'],
+			// 	background: 'url(http://upload.wikimedia.org/wikipedia/commons/4/4f/Fractal_Broccoli.jpg)',
+			// 	chainMethods: ['ripple']
+			// },0,2);
 			//setInterval(function(){masterGrid.subgrids[1].invoke('ripple')},2900);
 		});
 	};
 })(jQuery);
 
 $(function(){
-	// $('#gridconcepttwo').JSGridConcept({
-	// 	rows: 8,
-	// 	cols: 6,
-	// 	background: 'url(http://www.pictureworldbd.com/Flower/image/lotus/pink_lotus_flower_wallpaper.jpg)'
-	// });
 	$('#gridconcept').JSGridConcept({
 		rows: 6,
 		cols: 8,
 		background: 'url("http://cdn.all-that-is-interesting.com/wordpress/wp-content/uploads/2012/02/coastline-of-maui.jpg")'
 	});
-	// $('#gridconceptthree').JSGridConcept({
-	// 	rows: 6,
-	// 	cols: 8,
-	// 	background: 'url("http://cdn.all-that-is-interesting.com/wordpress/wp-content/uploads/2012/02/coastline-of-maui.jpg")'
-	// });
-
 });

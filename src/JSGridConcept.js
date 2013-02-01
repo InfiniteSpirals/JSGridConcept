@@ -42,28 +42,73 @@
 					cells[x].rollover();
 				}
 			},		
-			ripple : function(){
-				var chainsFired = [];
-				$.each(cells,function(i, cell){
+			ripple : function(rtype){
+				
+				var chainsFired = [], aCells = [], dur = 250;
+				switch(rtype){
+					case 'x':
+						//determine cells for each column.
+						var aCells = [];
+						for(var y=0;y<options.cols;y++){
+							//cells for this column.
+							var col = [];
+							for(var x=0;x<options.rows;x++){
+								var pos = x>0 ? (x*options.cols)+y : x+y;
+								col.push(cells[pos]);
+							}
+							aCells.push(col);
+						}
+						break;
+					case 'y':
+						//determine cells for each row.
+						var rows = [];
+						for(var x=0;x<options.rows;x++){
+							//cells for this row.
+							var row = [];
+							for(var y=0;y<options.cols;y++){
+								var pos = (x+y)>0 ? (x*options.cols+y) : 0;
+								row.push(cells[pos]);
+							}
+							aCells.push(row);
+						}
+						break;
+					default: 
+						aCells = cells;
+						dur = 25;
+				}
+				//console.log(dur);
+				//do the rippling!
+				$.each(aCells,function(i, cell){
 					gridQueue.queue('ripple',function(next){
 						setTimeout(function(){
-							if(cell instanceof Cell){
-								cell.nextState();
+							var handleRipple = function(thecell){
+								if(thecell instanceof Cell){
+									thecell.nextState();
+								}else{
+									if($.inArray(thecell,chainsFired)==-1 && $.inArray('ripple',subgrids[thecell].getOption('chainMethods'))!=-1){
+										subgrids[thecell].invoke('ripple');
+										chainsFired.push(thecell);
+									}								
+								}
+							};
+							if(Object.prototype.toString.call(cell) === '[object Array]'){
+								$.each(cell,function(i, thiscell){
+									handleRipple(thiscell);
+								});
 							}else{
-								if($.inArray(cell,chainsFired)==-1 && $.inArray('ripple',subgrids[cell].getOption('chainMethods'))!=-1){
-									subgrids[cell].invoke('ripple');
-									chainsFired.push(cell);
-								}								
+								handleRipple(cell);
 							}
 							next();
-						},25);
+						},dur);
 					});
 				});
 				gridQueue.dequeue('ripple');
 			},
 			setNextBackground : function(){
 				$.each(cells,function(i, cell){
-					cell.setOption('background',options.background).setNextBackground();
+					if(cell instanceof Cell){
+						cell.setOption('background',options.background).setNextBackground();
+					}
 				});
 			}
 		};	
@@ -106,7 +151,7 @@
 
 		this.invoke = function(method){
 			if (methods[method]) {
-				methods[method].call(Array.prototype.slice.call(arguments,1));
+				methods[method].apply(this,Array.prototype.slice.call(arguments,1));
 			}
 			//make chainable(?)
 			return this;
@@ -134,6 +179,7 @@
 	var Cell = function(options,cell$){
 		var nextClasses = ['show-left','show-right','show-front','show-back'];
 		var nextFaces = ['left','right','front','back'];
+		var baseFace = 'front';
 		var binded = [];
 		var x=0;
 		this.setBackground = function(){
@@ -151,7 +197,7 @@
 
 		this.setNextBackground = function(){
 			for(var i=0;i<nextFaces.length;i++){
-				if(i!=(x-1)){
+				if(i!=(x-1) && nextFaces[i]!=baseFace){
 					cell$.find('.' + nextFaces[i]).css({
 						backgroundImage: options.background
 					});
@@ -170,8 +216,12 @@
 		}
 
 		this.nextState = function(){
-			cell$.find('.cube').removeClass().addClass(nextClasses[x]).addClass('cube');
-			x<nextClasses.length ? x++ : x=0;
+			if(!transitionInProgress){
+				baseFace = '';
+				transitionInProgress = true;
+				cell$.find('.cube').removeClass().addClass(nextClasses[x]).addClass('cube');
+				x<nextClasses.length ? x++ : x=0;
+			}
 		};
 
 		this.rollover = function(){
@@ -188,8 +238,14 @@
 			});
 			binded = [];
 		}
-
-
+		var transitionInProgress = false;
+		var transitionCallbacks = ['webkitTransitionEnd','transitionend','oTransitionEnd'];
+		//bind animation callback to cell
+		$.each(transitionCallbacks,function(i, tcback){
+			cell$.bind(tcback,function(){
+				transitionInProgress = false;
+			});
+		});
 	};
 
 
@@ -202,9 +258,9 @@
 			cellDiam: 100,
 			cellMargin: 4,
 			cellType: 'square',
-			background: 'url(http://fireflyforest.net/images/firefly/2011/August/psychedelic-violet.jpg)',
+			background: 'url(images/psychedelic-violet.jpg)',
 			skin: '<div class="cell"><div class="cube"><div class="face front"></div><div class="face back"></div><div class="face right"></div><div class="face left"></div><div class="face top"></div><div class="face bottom"></div></div</div>', 
-			initMethods: ['setBackground']
+			initMethods: ['setBackground','setRollover']
 		};
 		//extend defaults with user defined options.
 		var options = $.extend(defaults, options);
@@ -219,34 +275,28 @@
 			//Create Grid object to represent MasterGrid.
 			var masterGridCells = $(this).find('.cell');
 			var masterGrid = new Grid(masterGridCells,options);
-			setInterval(function(){masterGrid.invoke('ripple')},4000);
+			
+			//setInterval(function(){masterGrid.invoke('ripple')},4000);
 
 			//test out some subgrid allocations
-			masterGrid.injectGrid({
-				rows:6,
-				cols:4,
-				initMethods : ['setBackground','setRollover'],
-				background: 'url(http://www.pictureworldbd.com/Flower/image/lotus/pink_lotus_flower_wallpaper.jpg)',
-				chainMethods: []
-			},4,0);
-			//TEST!!!! 
-			masterGrid.getSubgrid(0).invoke('ripple');
-			setTimeout(function(){
-				console.log('timeout function fired');
-				masterGrid.getSubgrid(0).
-					setOption('background','url(http://upload.wikimedia.org/wikipedia/commons/4/4f/Fractal_Broccoli.jpg)').
-					invoke('setNextBackground').
-					invoke('ripple');
-			},3000);
-			
 			// masterGrid.injectGrid({
 			// 	rows:4,
 			// 	cols:4,
 			// 	initMethods : ['setBackground','setRollover'],
-			// 	background: 'url(http://upload.wikimedia.org/wikipedia/commons/4/4f/Fractal_Broccoli.jpg)',
+			// 	background: 'url(images/pink_lotus_flower_wallpaper.jpg)',
 			// 	chainMethods: ['ripple']
-			// },0,2);
-			//setInterval(function(){masterGrid.subgrids[1].invoke('ripple')},2900);
+			// },4,0);
+			masterGrid.invoke('ripple','x');
+			//TEST!!!! 
+			//masterGrid.getSubgrid(0).invoke('ripple');
+			// setTimeout(function(){
+			// 	console.log('timeout function fired');
+			// 	masterGrid.getSubgrid(0).
+			// 		setOption('background','url(images/Fractal_Broccoli.jpg)').
+			// 		invoke('setNextBackground').
+			// 		invoke('ripple');
+			// },3000);
+			
 		});
 	};
 })(jQuery);
@@ -255,6 +305,6 @@ $(function(){
 	$('#gridconcept').JSGridConcept({
 		rows: 6,
 		cols: 8,
-		background: 'url("http://cdn.all-that-is-interesting.com/wordpress/wp-content/uploads/2012/02/coastline-of-maui.jpg")'
+		background: 'url("images/coastline-of-maui.jpg")'
 	});
 });

@@ -33,6 +33,9 @@
 				z++;
 			}
 		}
+		//storyboardin' queue! 
+		//this manages the storyboards created from the collection function
+		//called by user.
 		var sbQueueCallback;
 		var sbQueue = this.sbQueue = function(callback){
 			if(callback){

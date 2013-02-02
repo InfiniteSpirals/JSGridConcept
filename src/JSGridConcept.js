@@ -33,7 +33,19 @@
 				z++;
 			}
 		}
-
+		var sbQueueCallback;
+		var sbQueue = this.sbQueue = function(callback){
+			if(callback){
+				sbQueueCallback = callback;
+			}
+			if(!testAnimation()){
+				setTimeout(function(){
+					sbQueueCallback.call();
+				},options.sbpause);
+			}else{
+				setTimeout(sbQueue,250);
+			}
+		}
 		//Grid specific methods
 		var methods = {
 			setAfter : function() {
@@ -355,13 +367,14 @@
 			cols: 8,
 			cellDiam: 100,
 			cellMargin: 4,
+			sbpause: 1000,
 			cellType: 'square',
 			text: 'hello!|You|Lucky|People',
 			textxstart: 1,
 			textystart: 1,
 			background: 'url(images/psychedelic-violet.jpg)',
 			skin: '<div class="cell"><div class="cube"><div class="face front"></div><div class="face back"></div><div class="face right"></div><div class="face left"></div><div class="face top"></div><div class="face bottom"></div></div</div>', 
-			initMethods: ['setBackground','setBlockText']
+			initMethods: ['setBackground','setBlockText','setRollover']
 		};
 		//extend defaults with user defined options.
 		var options = $.extend(defaults, options);
@@ -385,15 +398,40 @@
 			// 	background: 'url(images/pink_lotus_flower_wallpaper.jpg)',
 			// 	chainMethods: ['ripple']
 			// },4,0);
-			setTimeout(function(){
+			var masterQueue = $({});
+			masterQueue.queue('animation', function(next){
 				masterGrid.setOption('background','url(images/psychedelic-violet.jpg)').
 					setOption('text','Meet|Your|New|3D Grid|System').
 					setOption('textystart',0).
 					invoke('setNextBackground').
 					invoke('setNextBlockText').
 					invoke('ripple','x').
-					invoke('setAfter');
-			},4000);
+					invoke('setAfter').
+					sbQueue(next,options.sbpause);
+			});
+			masterQueue.queue('animation', function(next){
+				masterGrid.setOption('background','url(images/maui-sunset.jpg)').
+					setOption('text','some|more|stuff|in here').
+					setOption('textystart',1).
+					invoke('setNextBackground').
+					invoke('setNextBlockText').
+					invoke('ripple','y').
+					invoke('setAfter').
+					sbQueue(next,options.sbpause);
+			});
+			masterQueue.queue('animation', function(next){
+				masterGrid.setOption('background','url(images/Fractal_Broccoli.jpg)').
+					setOption('text','fancy|some|fractal|broc?').
+					setOption('textystart',2).
+					invoke('setNextBackground').
+					invoke('setNextBlockText').
+					invoke('ripple').
+					invoke('setAfter').
+					sbQueue(next,options.sbpause);
+			});
+			setTimeout(function(){
+				masterQueue.dequeue('animation');
+			},options.sbpause);
 
 			//Next Steps.
 			//1: Add 'ripple in progress' or similar. Done! - subgrids? 

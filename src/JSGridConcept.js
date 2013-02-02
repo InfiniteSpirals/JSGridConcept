@@ -7,7 +7,9 @@
  */
 
 (function($) {
-	var animations = {},celltypes = {};
+	//not in use atm. for future iterations with multiple cell adapters.
+	//var animations = {},celltypes = {};
+
 	//Grid Constructor.	
 	var Grid = function(elem$,options){
 		//define collection of elements and array of cells.
@@ -52,7 +54,36 @@
 				for(var x=0;x<cells.length;x++){
 					cells[x].rollover();
 				}
-			},		
+			},
+			setBlockText : function(bnext,xstart,ystart){
+				//at somepoint will need to update this method to calculate
+				//break points in text/grid and provide some sort of handling
+				//for when the text exceeds the limits of the grid.
+				var xstart = xstart || options.textxstart, ystart = ystart || options.textystart, bnext = bnext || false;
+				//split text into 'rows' by CR.
+				var texta = options.text.split('|');
+				$.each(texta,function(i, strText){
+					//calculate starting cell from x+y positions
+					var firstcell = ((options.cols * ystart) + (options.cols * i)) + xstart;
+					console.log('debug - i=' + i + ' firstcell=' + firstcell + ' strText=' + strText);
+					//now loop through each character in the string
+					var letters = strText.split('');
+					$.each(letters,function(j, letter){
+						console.log('j=' + j + ' letter=' + letter + ' firstcell+j=' + (firstcell+j));
+						if(!bnext){
+							cells[(firstcell+j)].setHTML('<span>' + letter + '</span>');
+						}else{
+							cells[(firstcell+j)].setNextHTML('<span>' + letter + '</span>');
+						}
+					});
+				});
+			},
+			setNextBlockText : function(){
+				$.each(cells,function(i, cell){
+					cell.setNextHTML('');
+				});
+				methods['setBlockText'](true);
+			},	
 			ripple : function(rtype){
 				//unbind all rollovers... else we can get nasty messes.
 				$.each(cells,function(i,cell){
@@ -201,7 +232,7 @@
 			//make chainable(?)
 			return this;
 		};
-
+		//might make use of this in future for diff adapters etc.
 		this.injectMethod = function(method,newmethod){
 			methods[method] = newmethod;			
 		};
@@ -227,19 +258,27 @@
 		var baseFace = 'front';
 		var binded = [];
 		var x=0;
+
+		//hmm - probs need to refactor these into a methods object
+		//if/when we want to be able to specify custom cell types,
+		//to allow them to be overwritten from custom methods sent to the master grid on init.
+
 		this.setBackground = function(){
+			//this this is redundant.
+			//when this is converted to handle cell adapters
+			//they will all need some sort of next state etc.
 			cell$.css({ 
 				backgroundImage: options.background,
 				backgroundPositionX: -options.backgroundX,
 				backgroundPositionY: -options.backgroundY
 			});
+			//this is the relevant stuffz.
 			cell$.find('.face').css({
 				backgroundImage: options.background,
 				backgroundPositionX: -options.backgroundX,
 				backgroundPositionY: -options.backgroundY
 			});
 		};
-
 		this.setNextBackground = function(){
 			for(var i=0;i<nextFaces.length;i++){
 				if(i!=(x-1) && nextFaces[i]!=baseFace){
@@ -249,16 +288,26 @@
 				}
 			}			
 		};
-
+		this.setHTML = function(strHTML){
+			//just faces for now... 
+			cell$.find('.face').html(strHTML);
+		};
+		this.setNextHTML = function(strHTML){
+			for(var i=0;i<nextFaces.length;i++){
+				if(i!=(x-1) && nextFaces[i]!=baseFace){
+					cell$.find('.' + nextFaces[i]).html(strHTML);
+				}
+			}
+		};
 		this.setOption = function(option,value){
 			options[option] = value;
 			//make chainable
 			return this;
-		}
+		};
 
 		this.getOption = function(option,value){
 			return options[option] || '';
-		}
+		};
 
 		this.nextState = function(){
 			if(!transitionInProgress){
@@ -282,7 +331,7 @@
 				cell$.unbind(eventType);
 			});
 			binded = [];
-		}
+		};
 		var transitionInProgress = false;
 		var transitionCallbacks = ['webkitTransitionEnd','transitionend','oTransitionEnd'];
 		//bind animation callback to cell
@@ -307,9 +356,12 @@
 			cellDiam: 100,
 			cellMargin: 4,
 			cellType: 'square',
+			text: 'hello!|You|Lucky|People',
+			textxstart: 1,
+			textystart: 1,
 			background: 'url(images/psychedelic-violet.jpg)',
 			skin: '<div class="cell"><div class="cube"><div class="face front"></div><div class="face back"></div><div class="face right"></div><div class="face left"></div><div class="face top"></div><div class="face bottom"></div></div</div>', 
-			initMethods: ['setBackground']
+			initMethods: ['setBackground','setBlockText']
 		};
 		//extend defaults with user defined options.
 		var options = $.extend(defaults, options);
@@ -324,8 +376,6 @@
 			//Create Grid object to represent MasterGrid.
 			var masterGridCells = $(this).find('.cell');
 			var masterGrid = new Grid(masterGridCells,options);
-			
-			//setInterval(function(){masterGrid.invoke('ripple')},4000);
 
 			//test out some subgrid allocations
 			// masterGrid.injectGrid({
@@ -337,26 +387,19 @@
 			// },4,0);
 			setTimeout(function(){
 				masterGrid.setOption('background','url(images/psychedelic-violet.jpg)').
+					setOption('text','Meet|Your|New|3D Grid|System').
+					setOption('textystart',0).
 					invoke('setNextBackground').
+					invoke('setNextBlockText').
 					invoke('ripple','x').
 					invoke('setAfter');
 			},4000);
 
 			//Next Steps.
 			//1: Add 'ripple in progress' or similar. Done! - subgrids? 
-			//2: Allow setting of background after ripple so that we dont have any faces still on previous BG.
+			//2: Allow setting of background after ripple so that we dont have any faces still on previous BG. - DONE!!!
 			//3: Text - and text moving x/y/z.
 			//   (Text stuffs should be similar to nextBackgrounds etc.)
-
-			//TEST!!!! 
-			//masterGrid.getSubgrid(0).invoke('ripple');
-			// setTimeout(function(){
-			// 	console.log('timeout function fired');
-			// 	masterGrid.getSubgrid(0).
-			// 		setOption('background','url(images/Fractal_Broccoli.jpg)').
-			// 		invoke('setNextBackground').
-			// 		invoke('ripple');
-			// },3000);
 			
 		});
 	};

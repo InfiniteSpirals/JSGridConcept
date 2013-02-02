@@ -15,6 +15,8 @@
 		var z=0;
 		//Grid Queue Object
 		var gridQueue = $({});
+		//Track grid animation.
+		var queueInProgress = false;
 		//calculate offset.
 		options.cellOffset = options.cellDiam + options.cellMargin;	
 		//populate array with cells
@@ -32,18 +34,32 @@
 
 		//Grid specific methods
 		var methods = {
+			setAfter : function() {
+				if(!testAnimation()){
+					console.log('no longer animating - settting rest of backgrounds.');
+					methods['setBackground']();
+					if(options.rollover) methods['setRollover']();
+				}else{
+					console.log('still animating - deferring setting background.');
+					setTimeout(methods['setAfter'],250);
+				}
+			},
 			setBackground : function(){
 				for(var x=0;x<cells.length;x++){
 					cells[x].setBackground();
 				}
 			},
 			setRollover : function(){
+				options.rollover = true;
 				for(var x=0;x<cells.length;x++){
 					cells[x].rollover();
 				}
 			},		
 			ripple : function(rtype){
-				
+				//unbind all rollovers... else we can get nasty messes.
+				$.each(cells,function(i,cell){
+					cell.unbind();
+				});
 				var chainsFired = [], aCells = [], dur = 250;
 				switch(rtype){
 					case 'x':
@@ -76,10 +92,10 @@
 						aCells = cells;
 						dur = 25;
 				}
-				//console.log(dur);
+
 				//do the rippling!
 				$.each(aCells,function(i, cell){
-					gridQueue.queue('ripple',function(next){
+					var qq = gridQueue.queue('ripple',function(next){
 						setTimeout(function(){
 							var handleRipple = function(thecell){
 								if(thecell instanceof Cell){
@@ -98,10 +114,14 @@
 							}else{
 								handleRipple(cell);
 							}
+							if(gridQueue.queue('ripple').length == 0) {
+								queueInProgress=false;
+							}
 							next();
 						},dur);
 					});
 				});
+				queueInProgress = true;
 				gridQueue.dequeue('ripple');
 			},
 			setNextBackground : function(){
@@ -113,10 +133,37 @@
 			}
 		};	
 		
+		//this is to test if all animations are complete for this grid.
+		var isAnimating = false;
+		var monitorAnimation = function(){
+			if(!queueInProgress){
+				var test = false;
+				for(var x=0;x<cells.length;x++){
+					if(cells[x].getCellTransitionStatus()){
+						test = true;
+					}
+				}
+				if(test){
+					isAnimating = true;
+					setTimeout(monitorAnimation,25);
+				}else{
+					isAnimating = false;
+				}
+			}else{
+				isAnimating = true;
+				setTimeout(monitorAnimation,25);
+			}
+		};
+
+		var testAnimation =  this.testAnimation = function(){
+			monitorAnimation();
+			return isAnimating;				
+		}
+
 		var initgrid = function(){
 			for(var x=0;x<options.initMethods.length;x++){
 				if(methods[options.initMethods[x]]){
-					methods[options.initMethods[x]].call(arguments);
+					methods[options.initMethods[x]].call(this);
 				}
 			}
 		};
@@ -163,7 +210,7 @@
 
 		this.setOption = function(option,value){
 			options[option] = value;
-			console.log(options[option]);
+			//console.log(options[option]);
 			//make chainable
 			return this;
 		};
@@ -246,6 +293,10 @@
 				transitionInProgress = false;
 			});
 		});
+
+		this.getCellTransitionStatus = function(){
+			return transitionInProgress;
+		};
 	};
 
 
@@ -260,7 +311,7 @@
 			cellType: 'square',
 			background: 'url(images/psychedelic-violet.jpg)',
 			skin: '<div class="cell"><div class="cube"><div class="face front"></div><div class="face back"></div><div class="face right"></div><div class="face left"></div><div class="face top"></div><div class="face bottom"></div></div</div>', 
-			initMethods: ['setBackground','setRollover']
+			initMethods: ['setBackground']
 		};
 		//extend defaults with user defined options.
 		var options = $.extend(defaults, options);
@@ -286,7 +337,19 @@
 			// 	background: 'url(images/pink_lotus_flower_wallpaper.jpg)',
 			// 	chainMethods: ['ripple']
 			// },4,0);
-			masterGrid.invoke('ripple','x');
+			setTimeout(function(){
+				masterGrid.setOption('background','url(images/psychedelic-violet.jpg)').
+					invoke('setNextBackground').
+					invoke('ripple','x').
+					invoke('setAfter');
+			},4000);
+
+			//Next Steps.
+			//1: Add 'ripple in progress' or similar. Done! - subgrids? 
+			//2: Allow setting of background after ripple so that we dont have any faces still on previous BG.
+			//3: Text - and text moving x/y/z.
+			//   (Text stuffs should be similar to nextBackgrounds etc.)
+
 			//TEST!!!! 
 			//masterGrid.getSubgrid(0).invoke('ripple');
 			// setTimeout(function(){

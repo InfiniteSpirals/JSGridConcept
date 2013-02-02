@@ -36,11 +36,9 @@
 		var methods = {
 			setAfter : function() {
 				if(!testAnimation()){
-					console.log('no longer animating - settting rest of backgrounds.');
 					methods['setBackground']();
 					if(options.rollover) methods['setRollover']();
 				}else{
-					console.log('still animating - deferring setting background.');
 					setTimeout(methods['setAfter'],250);
 				}
 			},

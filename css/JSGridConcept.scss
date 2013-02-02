@@ -142,7 +142,9 @@
     }
 
 
-
+.cell .face span {
+  font-size : 60px;
+}
 h1 {
 	font-family: "Helvetica";
 	font-size: 40px;
@@ -150,4 +152,10 @@ h1 {
 }
 body {
 	background : #ccc;	
+}
+img.pre {
+  height : 1px;
+  width : 1px;
+  position : relative;
+  top : -10000px;  
 }

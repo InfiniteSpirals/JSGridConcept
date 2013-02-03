@@ -1,4 +1,4 @@
-/*! Jsgridconcept - v0.0.1 - 2013-02-02
+/*! Jsgridconcept - v0.0.1 - 2013-02-03
 * https://github.com/InfiniteSpirals/JSGridConcept
 * Copyright (c) 2013 InfiniteSpirals; Licensed MIT */
 
@@ -29,6 +29,9 @@
 				z++;
 			}
 		}
+		//storyboardin' queue! 
+		//this manages the storyboards created from the collection function
+		//called by user.
 		var sbQueueCallback;
 		var sbQueue = this.sbQueue = function(callback){
 			if(callback){
@@ -47,6 +50,7 @@
 			setAfter : function() {
 				if(!testAnimation()){
 					methods['setBackground']();
+					methods['setNextBlockText']();
 					if(options.rollover) methods['setRollover']();
 				}else{
 					setTimeout(methods['setAfter'],250);
@@ -73,11 +77,11 @@
 				$.each(texta,function(i, strText){
 					//calculate starting cell from x+y positions
 					var firstcell = ((options.cols * ystart) + (options.cols * i)) + xstart;
-					console.log('debug - i=' + i + ' firstcell=' + firstcell + ' strText=' + strText);
+					//console.log('debug - i=' + i + ' firstcell=' + firstcell + ' strText=' + strText);
 					//now loop through each character in the string
 					var letters = strText.split('');
 					$.each(letters,function(j, letter){
-						console.log('j=' + j + ' letter=' + letter + ' firstcell+j=' + (firstcell+j));
+						//console.log('j=' + j + ' letter=' + letter + ' firstcell+j=' + (firstcell+j));
 						if(!bnext){
 							cells[(firstcell+j)].setHTML('<span>' + letter + '</span>');
 						}else{
@@ -167,6 +171,57 @@
 						cell.setOption('background',options.background).setNextBackground();
 					}
 				});
+			},
+			scrollMessage : function(ystart,text){
+				console.log('here');
+				//bit of an experiment, not sure how relevant this is to a GRID.
+				//but if you wanted to create a single line "Grid" this might look pretty cool.
+				//or you could have have scrolling  "narration" for a slide show?
+				var ystart = ystart || options.scrollXRow;
+				var text = text || options.scrollText;
+				console.log('ystart =' + ystart + ' text=' +text);
+				var scrollQueue = $({});
+				//cells to animate..
+				var cellsPos = [];
+				//get the cells position for the row to scroll on.
+				var firstcell = options.cols * (ystart-1);
+				for(var x=0;x<options.cols;x++){
+					cellsPos.push(firstcell+x);
+				}
+
+				//text into arr...
+				var aText = text.split('');
+				var cellsAnim = [];
+				var y=0;
+
+				//loop through in reverse...
+				for(var x=(cellsPos.length-1);x>=0;x--){
+					cellsAnim.push(cells[cellsPos[x]]);
+					scrollQueue.queue('scroll',function(next){
+						for(var z=0;z<=y;z++){						
+							if(cellsAnim[z] instanceof Cell){
+								cellsAnim[z].setHTML('<span>a</span>');
+								cellsAnim[z].nextState(true);
+							}
+						}
+						var checkStatusNext = function(){
+							var test = false;
+							for(var z=0;z<=y;z++){
+								if(cellsAnim[z] instanceof Cell){
+									if(cellsAnim[z].getCellTransitionStatus()) test = true;
+								}
+							};
+							if(!test){
+								next();
+							}else{
+								setTimeout(checkStatusNext,100);
+							}
+						}
+						checkStatusNext();
+						y++;
+					});
+				}	
+				scrollQueue.dequeue('scroll');
 			}
 		};	
 		
@@ -237,7 +292,7 @@
 			if (methods[method]) {
 				methods[method].apply(this,Array.prototype.slice.call(arguments,1));
 			}
-			//make chainable(?)
+			//make chainable
 			return this;
 		};
 		//might make use of this in future for diff adapters etc.
@@ -261,11 +316,13 @@
 
 	//Cell Constructor
 	var Cell = function(options,cell$){
-		var nextClasses = ['show-left','show-right','show-front','show-back'];
-		var nextFaces = ['left','right','front','back'];
-		var baseFace = 'front';
+		var nextClasses = ['show-front','show-left','show-front','show-top'];
+		var nextClassesScroll = ['show-scroll','show-scroll1','show-scroll2','show-scroll3'];
+		var nextFaces = ['front','left','front','top'];
+		var nextFacesScroll = ['left','back','right','front'];
 		var binded = [];
 		var x=0;
+		var xScroll=0;
 
 		//hmm - probs need to refactor these into a methods object
 		//if/when we want to be able to specify custom cell types,
@@ -288,8 +345,13 @@
 			});
 		};
 		this.setNextBackground = function(){
+			//loop through all faces in array.
+			//we want to set BG on all faces aside from the one 
+			//we are already on. 
+			//One we are already on is represented by X.
+			console.log('current face=' + nextFaces[x]);
 			for(var i=0;i<nextFaces.length;i++){
-				if(i!=(x-1) && nextFaces[i]!=baseFace){
+				if(i!=x&&nextFaces[i]!=nextFaces[x]){
 					cell$.find('.' + nextFaces[i]).css({
 						backgroundImage: options.background
 					});
@@ -300,10 +362,12 @@
 			//just faces for now... 
 			cell$.find('.face').html(strHTML);
 		};
-		this.setNextHTML = function(strHTML){
-			for(var i=0;i<nextFaces.length;i++){
-				if(i!=(x-1) && nextFaces[i]!=baseFace){
-					cell$.find('.' + nextFaces[i]).html(strHTML);
+		this.setNextHTML = function(strHTML,bScroll){
+			var bScroll = bScroll || false;
+			var nextFace = bScroll ? nextFacesScroll : nextFaces;
+			for(var i=0;i<nextFace.length;i++){
+				if(i!=x&&nextFace[i]!=nextFace[x]){
+					cell$.find('.' + nextFace[i]).html(strHTML);
 				}
 			}
 		};
@@ -317,15 +381,23 @@
 			return options[option] || '';
 		};
 
-		this.nextState = function(){
+		this.nextState = function(bScroll){
+			console.log('nextState');
+			var bScroll = bScroll || false;
 			if(!transitionInProgress){
-				baseFace = '';
+				if(bScroll){
+					xScroll<(nextClassesScroll.length-1) ? xScroll++ : xScroll=0;
+				}else{
+					x<(nextClasses.length-1) ? x++ : x=0;
+				}
+				var nextClass = bScroll ? nextClassesScroll : nextClasses;
+				var xx = bScroll ? xScroll : x;
 				transitionInProgress = true;
-				cell$.find('.cube').removeClass().addClass(nextClasses[x]).addClass('cube');
-				x<nextClasses.length ? x++ : x=0;
+				cell$.find('.cube').removeClass().addClass(nextClass[xx]).addClass('cube');
 			}
 		};
 
+		
 		this.rollover = function(){
 			binded.push('mouseover');
 			var ns = this.nextState;
@@ -364,12 +436,12 @@
 			cellDiam: 100,
 			cellMargin: 4,
 			sbpause: 1000,
-			cellType: 'square',
-			text: 'hello!|You|Lucky|People',
+			cellType: 'cube',
+			text: '',
 			textxstart: 1,
 			textystart: 1,
 			background: 'url(images/psychedelic-violet.jpg)',
-			skin: '<div class="cell"><div class="cube"><div class="face front"></div><div class="face back"></div><div class="face right"></div><div class="face left"></div><div class="face top"></div><div class="face bottom"></div></div</div>', 
+			skin: '<div class="cell"><div class="cube show-front"><div class="face front"></div><div class="face back"></div><div class="face right"></div><div class="face left"></div><div class="face top"></div><div class="face bottom"></div></div</div>', 
 			initMethods: ['setBackground','setBlockText','setRollover']
 		};
 		//extend defaults with user defined options.
@@ -395,6 +467,14 @@
 			// 	chainMethods: ['ripple']
 			// },4,0);
 			var masterQueue = $({});
+			masterQueue.queue('animation',function(next){
+				masterGrid.setOption('text','hello!||and|welcome').
+					setOption('textystart',1).
+					invoke('setNextBlockText').
+					invoke('ripple').
+					invoke('setAfter').
+					sbQueue(next,options.sbpause);
+			});
 			masterQueue.queue('animation', function(next){
 				masterGrid.setOption('background','url(images/psychedelic-violet.jpg)').
 					setOption('text','Meet|Your|New|3D Grid|System').
@@ -406,12 +486,11 @@
 					sbQueue(next,options.sbpause);
 			});
 			masterQueue.queue('animation', function(next){
-				masterGrid.setOption('background','url(images/maui-sunset.jpg)').
-					setOption('text','some|more|stuff|in here').
+				masterGrid.setOption('text','some|more|stuff|in here').
 					setOption('textystart',1).
 					invoke('setNextBackground').
 					invoke('setNextBlockText').
-					invoke('ripple','y').
+					invoke('ripple').
 					invoke('setAfter').
 					sbQueue(next,options.sbpause);
 			});
@@ -421,6 +500,26 @@
 					setOption('textystart',2).
 					invoke('setNextBackground').
 					invoke('setNextBlockText').
+					invoke('ripple','x').
+					invoke('setAfter').
+					sbQueue(next,options.sbpause);
+			});
+			masterQueue.queue('animation', function(next){
+				masterGrid.setOption('background','url(images/Fractal_Broccoli.jpg)').
+					setOption('text','fancy|some|fractal|brostep').
+					setOption('textystart',2).
+					invoke('setNextBackground').
+					invoke('setNextBlockText').
+					invoke('ripple','x').
+					invoke('setAfter').
+					sbQueue(next,options.sbpause);
+			});
+			masterQueue.queue('animation', function(next){
+				masterGrid.setOption('background','url(images/psychedelic-violet.jpg)').
+					setOption('text','some|more|stuff|in here').
+					setOption('textystart',1).
+					invoke('setNextBackground').
+					invoke('setNextBlockText').
 					invoke('ripple').
 					invoke('setAfter').
 					sbQueue(next,options.sbpause);
@@ -428,11 +527,18 @@
 			setTimeout(function(){
 				masterQueue.dequeue('animation');
 			},options.sbpause);
-
+			// setTimeout(function(){
+			// 	masterGrid.invoke('scrollMessage',6,'hello!');
+			// },500);
 			//Next Steps.
 			//1: Add 'ripple in progress' or similar. Done! - subgrids? 
 			//2: Allow setting of background after ripple so that we dont have any faces still on previous BG. - DONE!!!
-			//3: Text - and text moving x/y/z.
+			//3: Text - and text moving x/y/z. - DONE
+
+			//New Next Steps!
+			//1. setAfter - for text as well as BG - DONE!!! :-)
+			//2. scrolling text?
+			//3. 
 			//   (Text stuffs should be similar to nextBackgrounds etc.)
 			
 		});

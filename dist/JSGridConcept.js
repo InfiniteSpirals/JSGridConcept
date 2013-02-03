@@ -173,7 +173,6 @@
 				});
 			},
 			scrollMessage : function(ystart,text){
-				console.log('here');
 				//bit of an experiment, not sure how relevant this is to a GRID.
 				//but if you wanted to create a single line "Grid" this might look pretty cool.
 				//or you could have have scrolling  "narration" for a slide show?
@@ -188,20 +187,29 @@
 				for(var x=0;x<options.cols;x++){
 					cellsPos.push(firstcell+x);
 				}
+				//sort out text. if it's smaller than col length, add spaces.
+				//also - add equal number of spaces as col length so it scrolls off screen...
+				for(var ispc=0;ispc<(text.length<options.cols ? (options.cols+(options.cols-text.length)) : options.cols);ispc++){
+					text += ' '; 
+				}
 
 				//text into arr...
 				var aText = text.split('');
 				var cellsAnim = [];
 				var y=0;
-
 				//loop through in reverse...
-				for(var x=(cellsPos.length-1);x>=0;x--){
+				cellsPos.reverse();
+				for(var x=0;x<(aText.length>=cellsPos.length ? aText.length : cellsPos.length);x++){
 					cellsAnim.push(cells[cellsPos[x]]);
 					scrollQueue.queue('scroll',function(next){
 						for(var z=0;z<=y;z++){						
 							if(cellsAnim[z] instanceof Cell){
-								cellsAnim[z].setHTML('<span>a</span>');
-								cellsAnim[z].nextState(true);
+								if(options.scrollAnim){
+									cellsAnim[z].setNextHTML('<span>' + (y<aText.length ? aText[y-z] : ' ') + '</span>',true);
+									cellsAnim[z].nextState(true);
+								}else{
+									cellsAnim[z].setHTML('<span>' + (y<aText.length ? aText[y-z] : ' ') + '</span>');
+								}
 							}
 						}
 						var checkStatusNext = function(){
@@ -217,10 +225,16 @@
 								setTimeout(checkStatusNext,100);
 							}
 						}
-						checkStatusNext();
+						if(options.scrollAnim){
+							checkStatusNext();
+						}else{
+							setTimeout(function(){
+								next();
+							},options.scrollNonAnimDuration);
+						}
 						y++;
 					});
-				}	
+				}
 				scrollQueue.dequeue('scroll');
 			}
 		};	
@@ -317,9 +331,9 @@
 	//Cell Constructor
 	var Cell = function(options,cell$){
 		var nextClasses = ['show-front','show-left','show-front','show-top'];
-		var nextClassesScroll = ['show-scroll','show-scroll1','show-scroll2','show-scroll3'];
+		var nextClassesScroll = ['show-front','show-scroll','show-scroll1','show-scroll2'];
 		var nextFaces = ['front','left','front','top'];
-		var nextFacesScroll = ['left','back','right','front'];
+		var nextFacesScroll = ['front','left','back','right'];
 		var binded = [];
 		var x=0;
 		var xScroll=0;
@@ -365,8 +379,9 @@
 		this.setNextHTML = function(strHTML,bScroll){
 			var bScroll = bScroll || false;
 			var nextFace = bScroll ? nextFacesScroll : nextFaces;
+			var xx = bScroll ? xScroll : x;
 			for(var i=0;i<nextFace.length;i++){
-				if(i!=x&&nextFace[i]!=nextFace[x]){
+				if(i!=xx&&nextFace[i]!=nextFace[xx]){
 					cell$.find('.' + nextFace[i]).html(strHTML);
 				}
 			}
@@ -437,12 +452,14 @@
 			cellMargin: 4,
 			sbpause: 1000,
 			cellType: 'cube',
+			scrollAnim: true,
+			scrollNonAnimDuration: 100,
 			text: '',
 			textxstart: 1,
 			textystart: 1,
 			background: 'url(images/psychedelic-violet.jpg)',
 			skin: '<div class="cell"><div class="cube show-front"><div class="face front"></div><div class="face back"></div><div class="face right"></div><div class="face left"></div><div class="face top"></div><div class="face bottom"></div></div</div>', 
-			initMethods: ['setBackground','setBlockText','setRollover']
+			initMethods: ['setBackground','setBlockText']
 		};
 		//extend defaults with user defined options.
 		var options = $.extend(defaults, options);
@@ -524,12 +541,12 @@
 					invoke('setAfter').
 					sbQueue(next,options.sbpause);
 			});
-			setTimeout(function(){
-				masterQueue.dequeue('animation');
-			},options.sbpause);
 			// setTimeout(function(){
-			// 	masterGrid.invoke('scrollMessage',6,'hello!');
-			// },500);
+			// 	masterQueue.dequeue('animation');
+			// },options.sbpause);
+			setTimeout(function(){
+				masterGrid.invoke('scrollMessage',6,'hello there!!');
+			},500);
 			//Next Steps.
 			//1: Add 'ripple in progress' or similar. Done! - subgrids? 
 			//2: Allow setting of background after ripple so that we dont have any faces still on previous BG. - DONE!!!

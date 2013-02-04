@@ -54,7 +54,7 @@
 				}
 				setTimeout(function(){
 					sbQueueCallback.call();
-				},options.sbpause);
+				},options.sbPause);
 			}else{
 				if(!sbIsMonitoring){
 					sbIsMonitoring = true;
@@ -65,31 +65,37 @@
 		//Grid specific methods
 		var methods = {
 			setAfter : function() {
-				
 				if(!testAnimation()){
 					methods['setBackground']();
 					methods['setNextBlockText']();
 					if(options.rollover) methods['setRollover']();
+					if(options.clickable) methods['setClickable']();
 				}else{
 					setTimeout(methods['setAfter'],250);
 				}
 			},
 			setBackground : function(){
-				//use $.each - remember to do this!
-				for(var x=0;x<cells.length;x++){
-					if(cells[x] instanceof Cell){
-						cells[x].setBackground();
+				$.each(cells,function(i, cell){
+					if(cell instanceof Cell){
+						cell.setBackground();
 					}
-				}
+				});
 			},
 			setRollover : function(){
 				options.rollover = true;
-				//use $.each - remember to do this!
-				for(var x=0;x<cells.length;x++){
-					if(cells[x] instanceof Cell){
-						cells[x].rollover();
+				$.each(cells,function(i, cell){
+					if(cell instanceof Cell){
+						cell.rollover();
 					}
-				}
+				});
+			},
+			setClickable : function(onClickFunc){
+				options.clickable = true;
+				$.each(cells,function(i, cell){
+					if(cell instanceof Cell){
+						cell.setClickable(onClickFunc);
+					}
+				});
 			},
 			setBlockText : function(bnext,xstart,ystart){
 				//at somepoint will need to update this method to calculate
@@ -195,10 +201,11 @@
 				setQueueInProgress('true');
 				gridQueue.dequeue('ripple');
 			},
-			setNextBackground : function(){
+			setNextBackground : function(preservePos){
+				var preservePos = preservePos || options.preservePos;
 				$.each(cells,function(i, cell){
 					if(cell instanceof Cell){
-						cell.setOption('background',options.background).setNextBackground();
+						cell.setOption('background',options.background).setNextBackground(preservePos);
 					}
 				});
 			},
@@ -288,11 +295,6 @@
 		this.isAnimating = false;
 		var animMonitor, isMonitoring = false;
 		var monitorAnimation = function(){
-			if(options.isSubgrid){
-				//console.log('this is a subgrid -in monitor animation...');
-			}else{
-				//console.log('not a subgrid...');
-			}
 			if(!getQueueInProgress()){
 				var test = false;
 				// //to make doubly sure (no pun intended..) check the cells twice.
@@ -340,28 +342,41 @@
 				}
 			}
 		};
+		this.updateCellStates = function(cellstates){
+			$.each(cells, function(i,cell){
+				cell.updateStateID(cellstates[i]);
+			});
+		};
 		var subgrids = [];
 		this.injectGrid = function(sgoptions,xstart,ystart){
 			//take defaults for this grid, extend with subgrid options.
 			var sgoptions = $.extend({},options,sgoptions);
+			sgoptions.isSubgrid = true;
 			//work out X/Y positions.
 			//n.b will need to add some testing to check its within dimensions here
-			var subGrid$ = [];
+			var subGrid$ = [], cellStates = [];
 			for(var y=0;y<sgoptions.rows;y++){
 				var firstcell = ((options.cols * ystart) + (options.cols * y)) + xstart;
 				for(var x=0;x<sgoptions.cols;x++){
 					var pos = firstcell+x;
 					//assign jquery wrapped cell HTMLElement to subgrid elements array.
-					subGrid$.push(elem$[pos]);
-					//whilst we're in this loop, we have the affected position reference so we can
-					//unbind any events bound to cell element in master grid.
-					cells[pos].unbind();
+					subGrid$.push(elem$[pos]);				
+					if(cells[pos] instanceof Cell){
+						//whilst we're in this loop, we have the affected position reference so we can
+						//...
+						//1. grab the current cells 'state' variable (x in cell)
+						cellStates.push(cells[pos].getStateID());
+						//2. unbind any events bound to cell element in master grid.
+						cells[pos].unbind();
+					}
+
 					//... and add a reference to the subgrid into this grids cells array.
 					cells[pos] = subgrids.length;
 				}
 			}
 			//create the subgrid and push it into the subgrids array of this grid.
-			subgrids.push(new Grid(subGrid$,sgoptions).setOption('isSubgrid','true'));
+			subgrids.push(new Grid(subGrid$,sgoptions));
+			subgrids[subgrids.length-1].updateCellStates(cellStates);
 		};
 
 		this.getSubgrid = function(id){
@@ -407,7 +422,12 @@
 		//hmm - probs need to refactor these into a methods object
 		//if/when we want to be able to specify custom cell types,
 		//to allow them to be overwritten from custom methods sent to the master grid on init.
-
+		this.setClickable = function(onClickFunc){
+			cell$.css({ 
+				cursor : 'pointer'
+			});
+			cell$.click(onClickFunc);
+		}
 		this.setBackground = function(){
 			//this this is redundant.
 			//when this is converted to handle cell adapters
@@ -424,7 +444,7 @@
 				backgroundPositionY: -options.backgroundY
 			});
 		};
-		this.setNextBackground = function(){
+		this.setNextBackground = function(preservePos){
 			//loop through all faces in array.
 			//we want to set BG on all faces aside from the one 
 			//we are already on. 
@@ -435,6 +455,12 @@
 					cell$.find('.' + nextFaces[i]).css({
 						backgroundImage: options.background
 					});
+					if(!preservePos){
+						cell$.find('.' + nextFaces[i]).css({
+							backgroundPositionX: -options.backgroundX,
+							backgroundPositionY: -options.backgroundY
+						});
+					}
 				}
 			}			
 		};
@@ -486,7 +512,12 @@
 				ns();
 			});
 		};
-
+		this.getStateID = function(){
+			return x;
+		}
+		this.updateStateID = function(stateID){
+			x=stateID;
+		};
 		this.unbind = function(){
 			$.each(binded,function(i, eventType){
 				cell$.unbind(eventType);
@@ -516,9 +547,10 @@
 			cols: 8,
 			cellDiam: 100,
 			cellMargin: 4,
-			sbpause: 1000,
+			sbPause: 700,
 			cellType: 'cube',
 			scrollAnim: true,
+			preservePos: false,
 			scrollNonAnimDuration: 100,
 			isSubgrid: false,
 			text: '',
@@ -541,11 +573,160 @@
 			//Create Grid object to represent MasterGrid.
 			var masterGridCells = $(this).find('.cell');
 			var masterGrid = new Grid(masterGridCells,options);
-
+			
+			// masterGrid.injectGrid({
+			// 	rows:1,
+			// 	cols:1,
+			// 	text:'',
+			// 	initMethods : ['setRollover'],
+			// 	background: 'url("images/sp2.jpg")',
+			// 	scrollAnim:false,
+			// 	chainMethods: ['ripple']
+			// },5,3);
+			// masterGrid.injectGrid({
+			// 	rows:1,
+			// 	cols:1,
+			// 	text:'',
+			// 	initMethods : ['setRollover'],
+			// 	background: 'url("images/ras2.jpg")',
+			// 	scrollAnim:false,
+			// 	chainMethods: ['ripple']
+			// },4,4);
+			var masterQueue = $({});
+			masterQueue.queue('animation',function(next){
+				masterGrid.setOption('background','url("images/greytree.jpg")').
+					invoke('setNextBackground').
+					invoke('setNextBlockText').
+					invoke('ripple').
+					invoke('setAfter').
+					sbQueue(next,options.sbPause);
+			});
+			masterQueue.queue('animation',function(next){
+				masterGrid.injectGrid({
+					rows:1,
+					cols:1,
+					text:'',
+					preservePos: true,
+					initMethods : ['setRollover'],
+					scrollAnim:false,
+					chainMethods: []
+				},4,3);
+				masterGrid.injectGrid({
+					rows:1,
+					cols:1,
+					text:'',
+					preservePos: true,
+					initMethods : ['setRollover'],
+					scrollAnim:false,
+					chainMethods: []
+				},4,4);
+				masterGrid.injectGrid({
+					rows:1,
+					cols:1,
+					text:'',
+					preservePos: true,
+					initMethods : ['setRollover'],
+					scrollAnim:false,
+					chainMethods: []
+				},5,4);
+				masterGrid.injectGrid({
+					rows:1,
+					cols:1,
+					text:'',
+					preservePos: true,
+					initMethods : ['setRollover'],
+					scrollAnim:false,
+					chainMethods: []
+				},5,3);
+				
+				// console.log(masterGrid.getSubgrid(0).getOption('isSubgrid'));
+				// console.log(masterGrid.getSubgrid(0).getOption('background'));
+				// console.log(masterGrid.getSubgrid(0).getOption('preservePos'));
+				next();
+			});
+			masterQueue.queue('animation',function(next){
+				masterGrid.getSubgrid(0).
+					setOption('background','url("images/ras2.jpg")').
+					setOption('preservePos',false).
+					invoke('setNextBackground').
+					invoke('ripple').
+					invoke('setAfter');
+					setTimeout(next,options.sbPause);
+			});
+			masterQueue.queue('animation',function(next){
+				masterGrid.getSubgrid(1).
+					setOption('background','url("images/sp2.jpg")').
+					setOption('preservePos',false).
+					invoke('setNextBackground').
+					invoke('ripple').
+					invoke('setAfter');
+					setTimeout(next,options.sbPause);
+			});
+			masterQueue.queue('animation',function(next){
+				masterGrid.getSubgrid(2).
+					setOption('background','url("images/wmg.jpg")').
+					setOption('preservePos',false).
+					invoke('setNextBackground').
+					invoke('ripple').
+					invoke('setAfter');
+					setTimeout(next,options.sbPause);
+			});
+			masterQueue.queue('animation',function(next){
+				masterGrid.getSubgrid(3).
+					setOption('background','url("images/NXT.jpg")').
+					setOption('preservePos',false).
+					invoke('setNextBackground').
+					invoke('ripple').
+					invoke('setAfter');
+					setTimeout(next,options.sbPause);
+			});
+			masterQueue.queue('animation',function(next){
+				masterGrid.setOption('text','click|on|one...|.|..|...').
+					invoke('setNextBlockText').
+					invoke('ripple','y').
+					invoke('setAfter').
+					sbQueue(next,options.sbPause);
+			});
+			masterQueue.queue('animation',function(next){
+				masterGrid.injectGrid({
+					rows:3,
+					cols:4,
+					text:'',
+					preservePos: true,
+					initMethods:[],
+					chainMethods: ['ripple']
+				},0,3);
+				masterGrid.injectGrid({
+					rows:3,
+					cols:8,
+					text:'red|ant...',
+					preservePos: true,
+					initMethods:[],
+					chainMethods: ['ripple']
+				},0,0);
+				masterGrid.getSubgrid(0).invoke('setClickable',function(){
+						masterGrid.getSubgrid(4).
+						setOption('preservePos',false).
+						setOption('background','url("images/RASMain.jpg")').
+						invoke('setNextBlockText').
+						invoke('setNextBackground').
+						invoke('ripple','x').
+						sbQueue(function(){
+							masterGrid.getSubgrid(5).invoke('setNextBlockText').
+								invoke('ripple').sbQueue(function(){
+									masterGrid.getSubgrid(5).
+										invoke('scrollMessage',3,'I worked at red ant solutions as the senior developer');
+								},options.sbPause);
+						},options.sbPause);
+				});
+			});
 			setTimeout(function(){
-				//console.log('in here...');
-				masterGrid.invoke('scrollMessage',2,'hello there!! why not read this long scroller!? It may contain some gems of wisdom!! note .. it doesn\'t :P');
-			},500);
+				masterQueue.dequeue('animation');
+			},options.sbPause);
+			// setTimeout(function(){
+			// 	//console.log('in here...');
+			// 	masterGrid.invoke('scrollMessage',2,'hello there!! why not read this long scroller!? It may contain some gems of wisdom!! note .. it doesn\'t :P');
+			// },500);
 			
 		});
 	};
@@ -557,6 +738,10 @@ $(function(){
 		cols: 8,
 		cellDiam: 100,
 		scrollAnim: false,
-		background: 'url("images/coastline-of-maui.jpg")'
+		text: 'grids|for|you...',
+		textxstart:0,
+		textystart:0,
+		initMethods: ['setBackground'],
+		background: 'url("images/basicgrey.jpg")'
 	});
 });

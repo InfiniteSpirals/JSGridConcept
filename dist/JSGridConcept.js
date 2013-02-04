@@ -1,4 +1,4 @@
-/*! Jsgridconcept - v0.0.1 - 2013-02-03
+/*! Jsgridconcept - v0.0.1 - 2013-02-04
 * https://github.com/InfiniteSpirals/JSGridConcept
 * Copyright (c) 2013 InfiniteSpirals; Licensed MIT */
 
@@ -14,7 +14,7 @@
 		//Grid Queue Object
 		var gridQueue = $({});
 		//Track grid animation.
-		var queueInProgress = false;
+		this.queueInProgress = false;
 		//calculate offset.
 		options.cellOffset = options.cellDiam + options.cellMargin;	
 		//populate array with cells
@@ -29,25 +29,39 @@
 				z++;
 			}
 		}
+		var setQueueInProgress = function(status){
+			this.queueInProgress = status;
+		}
+		var getQueueInProgress = function(){
+			return this.queueInProgress;
+		}
 		//storyboardin' queue! 
 		//this manages the storyboards created from the collection function
 		//called by user.
-		var sbQueueCallback;
+		var sbQueueCallback, sbMonitor, sbIsMonitoring = false;
 		var sbQueue = this.sbQueue = function(callback){
 			if(callback){
 				sbQueueCallback = callback;
 			}
 			if(!testAnimation()){
+				if(sbIsMonitoring){
+					clearInterval(sbMonitor);
+					sbIsMonitoring = false;
+				}
 				setTimeout(function(){
 					sbQueueCallback.call();
 				},options.sbpause);
 			}else{
-				setTimeout(sbQueue,250);
+				if(!sbIsMonitoring){
+					sbIsMonitoring = true;
+					sbMonitor = setInterval(sbQueue,250);
+				}
 			}
 		}
 		//Grid specific methods
 		var methods = {
 			setAfter : function() {
+				
 				if(!testAnimation()){
 					methods['setBackground']();
 					methods['setNextBlockText']();
@@ -57,14 +71,20 @@
 				}
 			},
 			setBackground : function(){
+				//use $.each - remember to do this!
 				for(var x=0;x<cells.length;x++){
-					cells[x].setBackground();
+					if(cells[x] instanceof Cell){
+						cells[x].setBackground();
+					}
 				}
 			},
 			setRollover : function(){
 				options.rollover = true;
+				//use $.each - remember to do this!
 				for(var x=0;x<cells.length;x++){
-					cells[x].rollover();
+					if(cells[x] instanceof Cell){
+						cells[x].rollover();
+					}
 				}
 			},
 			setBlockText : function(bnext,xstart,ystart){
@@ -82,24 +102,30 @@
 					var letters = strText.split('');
 					$.each(letters,function(j, letter){
 						//console.log('j=' + j + ' letter=' + letter + ' firstcell+j=' + (firstcell+j));
-						if(!bnext){
-							cells[(firstcell+j)].setHTML('<span>' + letter + '</span>');
-						}else{
-							cells[(firstcell+j)].setNextHTML('<span>' + letter + '</span>');
+						if(cells[firstcell+j] instanceof Cell){
+							if(!bnext){
+								cells[(firstcell+j)].setHTML('<span>' + letter + '</span>');
+							}else{
+								cells[(firstcell+j)].setNextHTML('<span>' + letter + '</span>');
+							}
 						}
 					});
 				});
 			},
 			setNextBlockText : function(){
 				$.each(cells,function(i, cell){
-					cell.setNextHTML('');
+					if(cell instanceof Cell){
+						cell.setNextHTML('');
+					}
 				});
 				methods['setBlockText'](true);
 			},	
 			ripple : function(rtype){
 				//unbind all rollovers... else we can get nasty messes.
 				$.each(cells,function(i,cell){
-					cell.unbind();
+					if(cell instanceof Cell){
+						cell.unbind();
+					}
 				});
 				var chainsFired = [], aCells = [], dur = 250;
 				switch(rtype){
@@ -156,13 +182,13 @@
 								handleRipple(cell);
 							}
 							if(gridQueue.queue('ripple').length == 0) {
-								queueInProgress=false;
+								setQueueInProgress(false);
 							}
 							next();
 						},dur);
 					});
 				});
-				queueInProgress = true;
+				setQueueInProgress('true');
 				gridQueue.dequeue('ripple');
 			},
 			setNextBackground : function(){
@@ -173,13 +199,13 @@
 				});
 			},
 			scrollMessage : function(ystart,text){
+				//console.log('here!!');
 				//bit of an experiment, not sure how relevant this is to a GRID.
 				//but if you wanted to create a single line "Grid" this might look pretty cool.
 				//or you could have have scrolling  "narration" for a slide show?
 				var ystart = ystart || options.scrollXRow;
 				var text = text || options.scrollText;
-				console.log('ystart =' + ystart + ' text=' +text);
-				var scrollQueue = $({});
+				//console.log('ystart =' + ystart + ' text=' +text);
 				//cells to animate..
 				var cellsPos = [];
 				//get the cells position for the row to scroll on.
@@ -201,7 +227,7 @@
 				cellsPos.reverse();
 				for(var x=0;x<(aText.length>=cellsPos.length ? aText.length : cellsPos.length);x++){
 					cellsAnim.push(cells[cellsPos[x]]);
-					scrollQueue.queue('scroll',function(next){
+					gridQueue.queue('scroll',function(next){
 						for(var z=0;z<=y;z++){						
 							if(cellsAnim[z] instanceof Cell){
 								if(options.scrollAnim){
@@ -212,6 +238,7 @@
 								}
 							}
 						}
+						var statusMonitor, isCheckingStatus = false;
 						var checkStatusNext = function(){
 							var test = false;
 							for(var z=0;z<=y;z++){
@@ -220,50 +247,86 @@
 								}
 							};
 							if(!test){
+								if(gridQueue.queue('scroll').length == 0) {
+									setQueueInProgress(false);
+								}
+								if(isCheckingStatus){
+									clearInterval(statusMonitor);
+									isCheckingStatus = false;
+								}
 								next();
 							}else{
-								setTimeout(checkStatusNext,100);
+								if(!isCheckingStatus){
+									isCheckingStatus = true;
+									statusMonitor = setInterval(checkStatusNext,15);
+								}
 							}
 						}
 						if(options.scrollAnim){
 							checkStatusNext();
 						}else{
 							setTimeout(function(){
+								if(gridQueue.queue('scroll').length == 0) {
+									setQueueInProgress(false);
+								}
 								next();
 							},options.scrollNonAnimDuration);
 						}
 						y++;
 					});
 				}
-				scrollQueue.dequeue('scroll');
+				setQueueInProgress('true');
+				gridQueue.dequeue('scroll');
 			}
 		};	
 		
 		//this is to test if all animations are complete for this grid.
-		var isAnimating = false;
+		this.isAnimating = false;
+		var animMonitor, isMonitoring = false;
 		var monitorAnimation = function(){
-			if(!queueInProgress){
+			if(options.isSubgrid){
+				//console.log('this is a subgrid -in monitor animation...');
+			}else{
+				//console.log('not a subgrid...');
+			}
+			if(!getQueueInProgress()){
 				var test = false;
-				for(var x=0;x<cells.length;x++){
-					if(cells[x].getCellTransitionStatus()){
-						test = true;
-					}
+				// //to make doubly sure (no pun intended..) check the cells twice.
+				// //there is potential for a small window when all cells can read as false
+				// //in the very small gap between animations.
+				for(var ii=0;ii<2;ii++){
+					$.each(cells,function(i, cell){
+						if(cell instanceof Cell && cell.getCellTransitionStatus()){
+							test = true;
+						}
+					});
 				}
 				if(test){
-					isAnimating = true;
-					setTimeout(monitorAnimation,25);
+					this.isAnimating = true;
+					if(!isMonitoring){
+						isMonitoring = true;
+						animMonitor = setInterval(monitorAnimation,500);
+					}
 				}else{
-					isAnimating = false;
+					if(isMonitoring){
+						isMonitoring=false;
+						clearInterval(animMonitor);
+					}
+					this.isAnimating = false;
+					
 				}
 			}else{
-				isAnimating = true;
-				setTimeout(monitorAnimation,25);
+				this.isAnimating = true;
+				if(!isMonitoring){
+					isMonitoring = true;
+					animMonitor = setInterval(monitorAnimation,500);
+				}
 			}
 		};
 
 		var testAnimation =  this.testAnimation = function(){
 			monitorAnimation();
-			return isAnimating;				
+			return this.isAnimating;				
 		}
 
 		var initgrid = function(){
@@ -294,7 +357,7 @@
 				}
 			}
 			//create the subgrid and push it into the subgrids array of this grid.
-			subgrids.push(new Grid(subGrid$,sgoptions));
+			subgrids.push(new Grid(subGrid$,sgoptions).setOption('isSubgrid','true'));
 		};
 
 		this.getSubgrid = function(id){
@@ -316,7 +379,6 @@
 
 		this.setOption = function(option,value){
 			options[option] = value;
-			//console.log(options[option]);
 			//make chainable
 			return this;
 		};
@@ -363,7 +425,7 @@
 			//we want to set BG on all faces aside from the one 
 			//we are already on. 
 			//One we are already on is represented by X.
-			console.log('current face=' + nextFaces[x]);
+			//console.log('current face=' + nextFaces[x]);
 			for(var i=0;i<nextFaces.length;i++){
 				if(i!=x&&nextFaces[i]!=nextFaces[x]){
 					cell$.find('.' + nextFaces[i]).css({
@@ -397,7 +459,7 @@
 		};
 
 		this.nextState = function(bScroll){
-			console.log('nextState');
+			//console.log('nextState');
 			var bScroll = bScroll || false;
 			if(!transitionInProgress){
 				if(bScroll){
@@ -454,6 +516,7 @@
 			cellType: 'cube',
 			scrollAnim: true,
 			scrollNonAnimDuration: 100,
+			isSubgrid: false,
 			text: '',
 			textxstart: 1,
 			textystart: 1,
@@ -483,6 +546,14 @@
 			// 	background: 'url(images/pink_lotus_flower_wallpaper.jpg)',
 			// 	chainMethods: ['ripple']
 			// },4,0);
+			masterGrid.injectGrid({
+				rows:1,
+				cols:8,
+				initMethods : ['setBackground'],
+				background: 'url("images/coastline-of-maui.jpg")',
+				scrollAnim:true,
+				chainMethods: []
+			},0,5);
 			var masterQueue = $({});
 			masterQueue.queue('animation',function(next){
 				masterGrid.setOption('text','hello!||and|welcome').
@@ -514,7 +585,7 @@
 			masterQueue.queue('animation', function(next){
 				masterGrid.setOption('background','url(images/Fractal_Broccoli.jpg)').
 					setOption('text','fancy|some|fractal|broc?').
-					setOption('textystart',2).
+					setOption('textystart',0).
 					invoke('setNextBackground').
 					invoke('setNextBlockText').
 					invoke('ripple','x').
@@ -524,7 +595,7 @@
 			masterQueue.queue('animation', function(next){
 				masterGrid.setOption('background','url(images/Fractal_Broccoli.jpg)').
 					setOption('text','fancy|some|fractal|brostep').
-					setOption('textystart',2).
+					setOption('textystart',0).
 					invoke('setNextBackground').
 					invoke('setNextBlockText').
 					invoke('ripple','x').
@@ -541,22 +612,28 @@
 					invoke('setAfter').
 					sbQueue(next,options.sbpause);
 			});
-			// setTimeout(function(){
-			// 	masterQueue.dequeue('animation');
-			// },options.sbpause);
+			masterQueue.queue('animation', function(next){
+				masterGrid.getSubgrid(0).invoke('scrollMessage',1,'hello there!!').
+					sbQueue(next,options.sbpause);
+			});
+			masterQueue.queue('animation',function(next){
+				masterGrid.setOption('text','back|to the|maui|coast..').
+					setOption('background','url("images/coastline-of-maui.jpg")').
+					setOption('textystart',1).
+					invoke('setNextBackground').
+					invoke('setNextBlockText').
+					invoke('ripple').
+					invoke('setAfter').
+					invoke('setRollover').
+					sbQueue(next,options.sbpause);
+			});
 			setTimeout(function(){
-				masterGrid.invoke('scrollMessage',6,'hello there!!');
+				masterQueue.dequeue('animation');
+			},options.sbpause);
+			setTimeout(function(){
+				//console.log('in here...');
+				masterGrid.getSubgrid(0).invoke('scrollMessage',1,'hello there!! why not read this!?');
 			},500);
-			//Next Steps.
-			//1: Add 'ripple in progress' or similar. Done! - subgrids? 
-			//2: Allow setting of background after ripple so that we dont have any faces still on previous BG. - DONE!!!
-			//3: Text - and text moving x/y/z. - DONE
-
-			//New Next Steps!
-			//1. setAfter - for text as well as BG - DONE!!! :-)
-			//2. scrolling text?
-			//3. 
-			//   (Text stuffs should be similar to nextBackgrounds etc.)
 			
 		});
 	};

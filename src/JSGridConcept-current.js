@@ -18,7 +18,7 @@
 		//Grid Queue Object
 		var gridQueue = $({});
 		//Track grid animation.
-		this.queueInProgress = false;
+		var queueInProgress = false;
 		//calculate offset.
 		options.cellOffset = options.cellDiam + options.cellMargin;	
 		//populate array with cells
@@ -32,12 +32,6 @@
 				cells.push(new Cell(cellOptions,$(elem$[z])));
 				z++;
 			}
-		}
-		var setQueueInProgress = function(status){
-			this.queueInProgress = status;
-		}
-		var getQueueInProgress = function(){
-			return this.queueInProgress;
 		}
 		//storyboardin' queue! 
 		//this manages the storyboards created from the collection function
@@ -178,13 +172,13 @@
 								handleRipple(cell);
 							}
 							if(gridQueue.queue('ripple').length == 0) {
-								setQueueInProgress(false);
+								queueInProgress=false;
 							}
 							next();
 						},dur);
 					});
 				});
-				setQueueInProgress('true');
+				queueInProgress = true;
 				gridQueue.dequeue('ripple');
 			},
 			setNextBackground : function(){
@@ -202,6 +196,7 @@
 				var ystart = ystart || options.scrollXRow;
 				var text = text || options.scrollText;
 				//console.log('ystart =' + ystart + ' text=' +text);
+				var scrollQueue = $({});
 				//cells to animate..
 				var cellsPos = [];
 				//get the cells position for the row to scroll on.
@@ -223,7 +218,7 @@
 				cellsPos.reverse();
 				for(var x=0;x<(aText.length>=cellsPos.length ? aText.length : cellsPos.length);x++){
 					cellsAnim.push(cells[cellsPos[x]]);
-					gridQueue.queue('scroll',function(next){
+					scrollQueue.queue('scroll',function(next){
 						for(var z=0;z<=y;z++){						
 							if(cellsAnim[z] instanceof Cell){
 								if(options.scrollAnim){
@@ -234,7 +229,6 @@
 								}
 							}
 						}
-						var statusMonitor, isCheckingStatus = false;
 						var checkStatusNext = function(){
 							var test = false;
 							for(var z=0;z<=y;z++){
@@ -243,91 +237,50 @@
 								}
 							};
 							if(!test){
-								if(gridQueue.queue('ripple').length == 0) {
-									setQueueInProgress(false);
-								}
-								clearInterval(statusMonitor);
-								isCheckingStatus = false;
 								next();
 							}else{
-								if(!isCheckingStatus){
-									isCheckingStatus = true;
-									statusMonitor = setInterval(checkStatusNext,15);
-								}
+								setTimeout(checkStatusNext,100);
 							}
 						}
 						if(options.scrollAnim){
 							checkStatusNext();
 						}else{
 							setTimeout(function(){
-								if(gridQueue.queue('ripple').length == 0) {
-									setQueueInProgress(false);
-								}
 								next();
 							},options.scrollNonAnimDuration);
 						}
 						y++;
 					});
 				}
-				setQueueInProgress('true');
-				gridQueue.dequeue('scroll');
+				scrollQueue.dequeue('scroll');
 			}
 		};	
 		
 		//this is to test if all animations are complete for this grid.
-		this.isAnimating = false;
-		var animMonitor, isMonitoring = false;
+		var isAnimating = false;
 		var monitorAnimation = function(){
-			if(options.isSubgrid){
-				//console.log('this is a subgrid -in monitor animation...');
-			}else{
-				//console.log('not a subgrid...');
-			}
-			if(!getQueueInProgress()){
-				// if(options.isSubgrid) {
-				// 	console.log('this is a subgrid -queue not in progress...');
-				// 	console.log('subgrid cells=');
-				// 	console.log(cells);
-				// }
+			if(!queueInProgress){
 				var test = false;
-				// //to make doubly sure (no pun intended..) check the cells twice.
-				// //there is potential for a small window when all cells can read as false
-				// //in the very small gap between animations.
-				// for(var ii=0;ii<2;ii++){
-					$.each(cells,function(i, cell){
-						if(cell instanceof Cell && cell.getCellTransitionStatus()){
-							test = true;
-						}
-					});
-				// }
+				for(var x=0;x<cells.length;x++){
+					if(cells[x] instanceof Cell && cells[x].getCellTransitionStatus()){
+						test = true;
+					}
+				}
 				if(test){
-					this.isAnimating = true;
-					if(options.isSubgrid) console.log('subgrid cells ARE animating');
-					if(!isMonitoring){
-						isMonitoring = true;
-						animMonitor = setInterval(monitorAnimation,500);
-					}
+					isAnimating = true;
+					setTimeout(monitorAnimation,25);
 				}else{
-					if(options.isSubgrid){
-						console.log('subgrid cells NOT animating');
-					}
-					isMonitoring=false;
-					this.isAnimating = false;
-					clearInterval(animMonitor);
+					isAnimating = false;
 				}
 			}else{
-				this.isAnimating = true;
-				if(options.isSubgrid) console.log('subgrid cells ARE animating');
-				if(!isMonitoring){
-					isMonitoring = true;
-					animMonitor = setInterval(monitorAnimation,500);
-				}
+				isAnimating = true;
+				setTimeout(monitorAnimation,25);
 			}
 		};
 
 		var testAnimation =  this.testAnimation = function(){
 			monitorAnimation();
-			return this.isAnimating;				
+			return isAnimating;				
 		}
 
 		var initgrid = function(){
@@ -358,7 +311,7 @@
 				}
 			}
 			//create the subgrid and push it into the subgrids array of this grid.
-			subgrids.push(new Grid(subGrid$,sgoptions).setOption('isSubgrid','true'));
+			subgrids.push(new Grid(subGrid$,sgoptions));
 		};
 
 		this.getSubgrid = function(id){
@@ -518,7 +471,6 @@
 			cellType: 'cube',
 			scrollAnim: true,
 			scrollNonAnimDuration: 100,
-			isSubgrid: false,
 			text: '',
 			textxstart: 1,
 			textystart: 1,
@@ -553,69 +505,76 @@
 				cols:8,
 				initMethods : ['setBackground'],
 				background: 'url("images/coastline-of-maui.jpg")',
-				scrollAnim:true,
+				scrollAnim:false,
 				chainMethods: []
 			},0,5);
 			var masterQueue = $({});
-			// masterQueue.queue('animation',function(next){
-			// 	masterGrid.setOption('text','hello!||and|welcome').
-			// 		setOption('textystart',1).
-			// 		invoke('setNextBlockText').
-			// 		invoke('ripple').
-			// 		invoke('setAfter').
-			// 		sbQueue(next,options.sbpause);
-			// });
-			// masterQueue.queue('animation', function(next){
-			// 	masterGrid.setOption('background','url(images/psychedelic-violet.jpg)').
-			// 		setOption('text','Meet|Your|New|3D Grid|System').
-			// 		setOption('textystart',0).
-			// 		invoke('setNextBackground').
-			// 		invoke('setNextBlockText').
-			// 		invoke('ripple','x').
-			// 		invoke('setAfter').
-			// 		sbQueue(next,options.sbpause);
-			// });
-			// masterQueue.queue('animation', function(next){
-			// 	masterGrid.setOption('text','some|more|stuff|in here').
-			// 		setOption('textystart',1).
-			// 		invoke('setNextBackground').
-			// 		invoke('setNextBlockText').
-			// 		invoke('ripple').
-			// 		invoke('setAfter').
-			// 		sbQueue(next,options.sbpause);
-			// });
-			// masterQueue.queue('animation', function(next){
-			// 	masterGrid.setOption('background','url(images/Fractal_Broccoli.jpg)').
-			// 		setOption('text','fancy|some|fractal|broc?').
-			// 		setOption('textystart',0).
-			// 		invoke('setNextBackground').
-			// 		invoke('setNextBlockText').
-			// 		invoke('ripple','x').
-			// 		invoke('setAfter').
-			// 		sbQueue(next,options.sbpause);
-			// });
-			// masterQueue.queue('animation', function(next){
-			// 	masterGrid.setOption('background','url(images/Fractal_Broccoli.jpg)').
-			// 		setOption('text','fancy|some|fractal|brostep').
-			// 		setOption('textystart',0).
-			// 		invoke('setNextBackground').
-			// 		invoke('setNextBlockText').
-			// 		invoke('ripple','x').
-			// 		invoke('setAfter').
-			// 		sbQueue(next,options.sbpause);
-			// });
-			// masterQueue.queue('animation', function(next){
-			// 	masterGrid.setOption('background','url(images/psychedelic-violet.jpg)').
-			// 		setOption('text','some|more|stuff|in here').
-			// 		setOption('textystart',1).
-			// 		invoke('setNextBackground').
-			// 		invoke('setNextBlockText').
-			// 		invoke('ripple').
-			// 		invoke('setAfter').
-			// 		sbQueue(next,options.sbpause);
-			// });
+			masterQueue.queue('animation',function(next){
+				masterGrid.setOption('text','hello!||and|welcome').
+					setOption('textystart',1).
+					invoke('setNextBlockText').
+					invoke('ripple').
+					invoke('setAfter').
+					sbQueue(next,options.sbpause);
+			});
 			masterQueue.queue('animation', function(next){
-				masterGrid.getSubgrid(0).invoke('scrollMessage',1,'hello there!!').
+				masterGrid.setOption('background','url(images/psychedelic-violet.jpg)').
+					setOption('text','Meet|Your|New|3D Grid|System').
+					setOption('textystart',0).
+					invoke('setNextBackground').
+					invoke('setNextBlockText').
+					invoke('ripple','x').
+					invoke('setAfter').
+					sbQueue(next,options.sbpause);
+			});
+			masterQueue.queue('animation', function(next){
+				masterGrid.setOption('text','some|more|stuff|in here').
+					setOption('textystart',1).
+					invoke('setNextBackground').
+					invoke('setNextBlockText').
+					invoke('ripple').
+					invoke('setAfter').
+					sbQueue(next,options.sbpause);
+			});
+			masterQueue.queue('animation', function(next){
+				masterGrid.setOption('background','url(images/Fractal_Broccoli.jpg)').
+					setOption('text','fancy|some|fractal|broc?').
+					setOption('textystart',0).
+					invoke('setNextBackground').
+					invoke('setNextBlockText').
+					invoke('ripple','x').
+					invoke('setAfter').
+					sbQueue(next,options.sbpause);
+			});
+			masterQueue.queue('animation', function(next){
+				masterGrid.setOption('background','url(images/Fractal_Broccoli.jpg)').
+					setOption('text','fancy|some|fractal|brostep').
+					setOption('textystart',0).
+					invoke('setNextBackground').
+					invoke('setNextBlockText').
+					invoke('ripple','x').
+					invoke('setAfter').
+					sbQueue(next,options.sbpause);
+			});
+			masterQueue.queue('animation', function(next){
+				masterGrid.setOption('background','url(images/psychedelic-violet.jpg)').
+					setOption('text','some|more|stuff|in here').
+					setOption('textystart',1).
+					invoke('setNextBackground').
+					invoke('setNextBlockText').
+					invoke('ripple').
+					invoke('setAfter').
+					sbQueue(next,options.sbpause);
+			});
+			masterQueue.queue('animation', function(next){
+				masterGrid.getSubgrid(0).setOption('text','welldone').
+					setOption('background','url(images/psychedelic-violet.jpg)').
+					setOption('textystart',0).
+					setOption('textxstart',0).
+					invoke('setNextBackground').
+					invoke('setNextBlockText').
+					invoke('ripple').
+					invoke('setAfter').
 					sbQueue(next,options.sbpause);
 			});
 			masterQueue.queue('animation',function(next){
@@ -631,10 +590,10 @@
 			setTimeout(function(){
 				masterQueue.dequeue('animation');
 			},options.sbpause);
-			// setTimeout(function(){
-			// 	//console.log('in here...');
-			// 	masterGrid.getSubgrid(0).invoke('scrollMessage',1,'hello there!! why not read this!?');
-			// },500);
+			setTimeout(function(){
+				//console.log('in here...');
+				masterGrid.getSubgrid(0).invoke('scrollMessage',1,'hello there!! why not read this ?');
+			},500);
 			
 		});
 	};

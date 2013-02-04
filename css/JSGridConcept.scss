@@ -1,56 +1,112 @@
 /* JSGridConcept.scss */
 
+/*mixins*/
+@mixin backfaceHidden {
+    -webkit-backface-visibility: hidden;
+     -moz-backface-visibility: hidden;
+       -o-backface-visibility: hidden;
+          backface-visibility: hidden;
+}
+@mixin transformsY($trans,$rotateY){
+  -webkit-transform: rotateY($rotateY) translateZ($trans);
+     -moz-transform: rotateY($rotateY) translateZ($trans);
+       -o-transform: rotateY($rotateY) translateZ($trans);
+          transform: rotateY($rotateY) translateZ($trans);
+}
+@mixin transformsYRev($trans,$rotateY){
+  -webkit-transform: translateZ($trans) rotateY($rotateY);
+     -moz-transform: translateZ($trans) rotateY($rotateY);
+       -o-transform: translateZ($trans) rotateY($rotateY);
+          transform: translateZ($trans) rotateY($rotateY);
+}
+@mixin transformsX($trans,$rotateX){
+  -webkit-transform: rotateX($rotateX) translateZ($trans);
+     -moz-transform: rotateX($rotateX) translateZ($trans);
+       -o-transform: rotateX($rotateX) translateZ($trans);
+          transform: rotateX($rotateX) translateZ($trans);
+}
+@mixin transformsXRev($trans,$rotateX){
+  -webkit-transform: translateZ($trans) rotateX($rotateX);
+     -moz-transform: translateZ($trans) rotateX($rotateX);
+       -o-transform: translateZ($trans) rotateX($rotateX);
+          transform: translateZ($trans) rotateX($rotateX);
+}
+@mixin transZ($trans){
+   -webkit-transform: translateZ($trans);
+     -moz-transform: translateZ($trans);
+       -o-transform: translateZ($trans);
+          transform: translateZ($trans); 
+}
+@mixin perspective($val){
+  -webkit-perspective: $val;
+         -moz-perspective: $val;
+           -o-perspective: $val;
+              perspective: $val;
+}
+/*variables*/
+$perspect: 1000px;
+$animdur : 0.333s;
+$tz : -50px;
+$tzpos : 50px;
+$maincelheight : 98px;
+$faceheight: 96px;
+$facefontsize:120px;
+/*styles*/
 #gridconcept,
 #gridconcepttwo,
 #gridconceptthree {
-	width : 880px;
-	margin : 0 auto;
-	border : solid 1px red;
-	min-height : 660px;
-	position: relative;
-	perspective: 1000px; 
+  width : 880px;
+  margin : 0 auto;
+  border : solid 1px red;
+  min-height : 660px;
+  position: relative;
+  perspective: 1000px; 
 }
 #gridconcepttwo {
-	width : 680px;
+  width : 680px;
   min-height : 860px;
 }
+
+
 .cell {
-	height :  98px;
-	width : 98px;
-	display : block;
-	border : solid 1px black;
-	margin : 5px;
-	float : left;
-	position: relative;
-      margin: 2px;
-      border: 1px solid #CCC;
-      -webkit-perspective: 1000px;
-         -moz-perspective: 1000px;
-           -o-perspective: 1000px;
-              perspective: 1000px;
+  height :  $maincelheight;
+  width : $maincelheight;
+  display : block;
+  border : solid 1px black;
+  float : left;
+  position: relative;
+  margin: 2px;
+  border: 1px solid #CCC;
+  @include perspective($perspect);
 }
+@mixin preserve3d {
+   -webkit-transform-style: preserve-3d;
+     -moz-transform-style: preserve-3d;
+       -o-transform-style: preserve-3d;
+          transform-style: preserve-3d;
+}
+@mixin transitions($dur){
+  -webkit-transition: -webkit-transform $dur;
+     -moz-transition: -moz-transform $dur;
+       -o-transition: -o-transform $dur;
+          transition: transform $dur;
+}
+
 .cube {
   width: 100%;
   height: 100%;
   position: absolute;
-  -webkit-transform-style: preserve-3d;
-     -moz-transform-style: preserve-3d;
-       -o-transform-style: preserve-3d;
-          transform-style: preserve-3d;
-  -webkit-transition: -webkit-transform 0.333s;
-     -moz-transition: -moz-transform 0.5s;
-       -o-transition: -o-transform 0.5s;
-          transition: transform 0.333s;
-
+  @include preserve3d;
+  @include transitions($animdur); 
 }
 .cube .face {
     display: block;
     position: absolute;
-    width: 96px;
-    height: 96px;
+    width: $faceheight;
+    height: $faceheight;
     border: 2px solid black;
-    line-height: 96px;
-    font-size: 120px;
+    line-height: $faceheight;
+    font-size: $facefontsize;
     font-weight: bold;
     color: white;
     text-align: center;
@@ -58,125 +114,72 @@
 }
 
 .cube.panels-backface-invisible .face {
-  -webkit-backface-visibility: hidden;
-     -moz-backface-visibility: hidden;
-       -o-backface-visibility: hidden;
-          backface-visibility: hidden;
+  @include backfaceHidden;
 }
 
 .cube .front  {
-  -webkit-transform: translateZ( 50px );
-     -moz-transform: translateZ( 50px );
-       -o-transform: translateZ( 50px );
-          transform: translateZ( 50px );
+  @include transZ($tzpos);
 }
+
 .cube .back   {
-  -webkit-transform: rotateX( -180deg ) translateZ( 50px );
-     -moz-transform: rotateX( -180deg ) translateZ( 50px );
-       -o-transform: rotateX( -180deg ) translateZ( 50px );
-          transform: rotateX( -180deg ) translateZ( 50px );
-}
-.cube .back   {
-  -webkit-transform: rotateY( -180deg ) translateZ( 50px );
-     -moz-transform: rotateY( -180deg ) translateZ( 50px );
-       -o-transform: rotateY( -180deg ) translateZ( 50px );
-          transform: rotateY( -180deg ) translateZ( 50px );
+  @include transformsY($tzpos,-180deg);
 }
 .cube .right {
-  -webkit-transform: rotateY(   90deg ) translateZ( 50px );
-     -moz-transform: rotateY(   90deg ) translateZ( 50px );
-       -o-transform: rotateY(   90deg ) translateZ( 50px );
-          transform: rotateY(   90deg ) translateZ( 50px );
+  @include transformsY($tzpos,90deg);
 }
 .cube .left {
-  -webkit-transform: rotateY(  -90deg ) translateZ( 50px );
-     -moz-transform: rotateY(  -90deg ) translateZ( 50px );
-       -o-transform: rotateY(  -90deg ) translateZ( 50px );
-          transform: rotateY(  -90deg ) translateZ( 50px );
+  @include transformsY($tzpos,-90deg);
 }
+
 .cube .top {
-  -webkit-transform: rotateX(   90deg ) translateZ( 50px );
-     -moz-transform: rotateX(   90deg ) translateZ( 50px );
-       -o-transform: rotateX(   90deg ) translateZ( 50px );
-          transform: rotateX(   90deg ) translateZ( 50px );
+  @include transformsX($tzpos,90deg);
 }
 .cube .bottom {
-  -webkit-transform: rotateX(  -90deg ) translateZ( 50px );
-     -moz-transform: rotateX(  -90deg ) translateZ( 50px );
-       -o-transform: rotateX(  -90deg ) translateZ( 50px );
-          transform: rotateX(  -90deg ) translateZ( 50px );
+  @include transformsX($tzpos,-90deg);
 }
 
 .cube.show-front {
-  -webkit-transform: translateZ( -50px );
-     -moz-transform: translateZ( -50px );
-       -o-transform: translateZ( -50px );
-          transform: translateZ( -50px );
+  @include transZ($tz);
 }
 .cube.show-back {
-  -webkit-transform: translateZ( -50px ) rotateY(-180deg);
-     -moz-transform: translateZ( -50px ) rotateY(-180deg);
-       -o-transform: translateZ( -50px ) rotateY(-180deg);
-          transform: translateZ( -50px ) rotateY(-180deg);
+  @include transformsY($tz,-180deg);
 }
 .cube.show-right {
-  -webkit-transform: translateZ( -50px ) rotateY(-90deg);
-     -moz-transform: translateZ( -50px ) rotateY(-90deg);
-       -o-transform: translateZ( -50px ) rotateY(-90deg);
-          transform: translateZ( -50px ) rotateY(-90deg);
+  @include transformsYRev($tz,-90deg);
 }
 .cube.show-left {
-  -webkit-transform: translateZ( -50px ) rotateY(90deg);
-     -moz-transform: translateZ( -50px ) rotateY(90deg);
-       -o-transform: translateZ( -50px ) rotateY(90deg);
-          transform: translateZ( -50px ) rotateY(90deg);
+  @include transformsYRev($tz,90deg);
 }
+
+
 .cube.show-scroll{
-  -webkit-transform: translateZ( -50px ) rotateY(90deg);
-     -moz-transform: translateZ( -50px ) rotateY(90deg);
-       -o-transform: translateZ( -50px ) rotateY(90deg);
-          transform: translateZ( -50px ) rotateY(90deg);
+  @include transformsYRev($tz,90deg);
 }
 .cube.show-scroll1{
-  -webkit-transform: translateZ( -50px ) rotateY(180deg);
-     -moz-transform: translateZ( -50px ) rotateY(180deg);
-       -o-transform: translateZ( -50px ) rotateY(180deg);
-          transform: translateZ( -50px ) rotateY(180deg);
+  @include transformsYRev($tz,180deg);
 }
 .cube.show-scroll2{
-  -webkit-transform: translateZ( -50px ) rotateY(270deg);
-     -moz-transform: translateZ( -50px ) rotateY(270deg);
-       -o-transform: translateZ( -50px ) rotateY(270deg);
-          transform: translateZ( -50px ) rotateY(270deg);
+  @include transformsYRev($tz,270deg);
 }
 .cube.show-scroll3{
-  -webkit-transform: translateZ( -50px );
-     -moz-transform: translateZ( -50px );
-       -o-transform: translateZ( -50px );
-          transform: translateZ( -50px );
+  @include transZ($tz);
 }
 .cube.show-top {
-  -webkit-transform: translateZ( -50px ) rotateX(-90deg);
-     -moz-transform: translateZ( -50px ) rotateX(-90deg);
-       -o-transform: translateZ( -50px ) rotateX(-90deg);
-          transform: translateZ( -50px ) rotateX(-90deg);
+  @include transformsXRev($tz,-90deg);
 }
 .cube.show-bottom {
-  -webkit-transform: translateZ( -50px ) rotateX(90deg);
-     -moz-transform: translateZ( -50px ) rotateX(90deg);
-       -o-transform: translateZ( -50px ) rotateX(90deg);
-          transform: translateZ( -50px ) rotateX(90deg);
+  @include transformsXRev($tz,90deg);
 }
-.cell .face span {
+/*.cell .face span {
   font-size : 60px;
-}
+}*/
 h1 {
-	font-family: "Helvetica";
-	font-size: 40px;
-	text-align : center;
+  font-family: "Helvetica";
+  font-size: 40px;
+  text-align : center;
 }
 body {
-	background : #ccc;	
+  background : #ccc;  
 }
 img.pre {
   height : 1px;

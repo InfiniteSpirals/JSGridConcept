@@ -702,22 +702,30 @@
 					text:'red|ant...',
 					preservePos: true,
 					initMethods:[],
-					chainMethods: ['ripple']
+					chainMethods: ['ripple'],
+					scrollNonAnimDuration: 150
 				},0,0);
+				var clickFuncInProgress = false;
 				masterGrid.getSubgrid(0).invoke('setClickable',function(){
-						masterGrid.getSubgrid(4).
-						setOption('preservePos',false).
-						setOption('background','url("images/RASMain.jpg")').
-						invoke('setNextBlockText').
-						invoke('setNextBackground').
-						invoke('ripple','x').
-						sbQueue(function(){
-							masterGrid.getSubgrid(5).invoke('setNextBlockText').
-								invoke('ripple').sbQueue(function(){
-									masterGrid.getSubgrid(5).
-										invoke('scrollMessage',3,'I worked at red ant solutions as the senior developer');
-								},options.sbPause);
-						},options.sbPause);
+						if(!clickFuncInProgress){
+							clickFuncInProgress = true;
+							masterGrid.getSubgrid(4).
+							setOption('preservePos',false).
+							setOption('background','url("images/RASMain.jpg")').
+							invoke('setNextBlockText').
+							invoke('setNextBackground').
+							invoke('ripple','x').
+							sbQueue(function(){
+								masterGrid.getSubgrid(5).invoke('setNextBlockText').
+									invoke('ripple').sbQueue(function(){
+										masterGrid.getSubgrid(5).
+											invoke('scrollMessage',3,'I worked at red ant solutions as the senior developer...').
+											sbQueue(function(){
+												clickFuncInProgress = false;
+											});
+									},options.sbPause);
+							},options.sbPause);
+						};
 				});
 			});
 			setTimeout(function(){
